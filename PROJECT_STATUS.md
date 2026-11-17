@@ -81,6 +81,12 @@ All foundational engineering, product, and design blueprints have been establish
 - [x] **Stitch AI Integration Readiness**
   - Connected and verified Stitch MCP server.
   - Synced project `projects/4134009653632951138` (*CricMotion AI Studio*) containing 7 ready screens.
+- [x] **Live External Services Connected & Verified**
+  - **MongoDB Atlas:** Connected to `ac-hvbfen3-shard-00-00.qf7go0b.mongodb.net` (tested & verified).
+  - **Google Gemini API:** Connected with `gemini-3.5-flash` producing live script generation (tested & verified).
+  - **Upstash Redis:** Connected to `nice-trout-174792.upstash.io` with BullMQ-ready TLS ping `PONG` (tested & verified).
+  - **D-ID Studio API:** Connected with 12 active video credits ready for presenter lip-sync generation (tested & verified).
+  - **Asset Storage:** Defaulting to Express static local storage (`/uploads`) with plug-and-play Cloudflare R2 compatibility.
 
 ---
 
