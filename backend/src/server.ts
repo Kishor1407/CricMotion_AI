@@ -1,8 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { connectDB } from './config/db';
+import authRoutes from './routes/authRoutes';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -11,10 +14,13 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 // Global Middleware
 app.use(cors({
   origin: CLIENT_URL,
-  credentials: true
+  credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static uploads
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Health Check Route
 app.get('/health', (_req: Request, res: Response) => {
@@ -22,11 +28,15 @@ app.get('/health', (_req: Request, res: Response) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     service: 'CricMotion AI Backend Orchestrator',
+    database: 'MongoDB Atlas',
     version: '1.0.0'
   });
 });
 
-// Root API v1 Information Route
+// Mount Routes
+app.use('/v1/auth', authRoutes);
+
+// Root API v1 Route
 app.get('/v1', (_req: Request, res: Response) => {
   res.status(200).json({
     success: true,
@@ -49,12 +59,17 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-// Start Server
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+// Start Server and Connect DB
+export const startServer = async () => {
+  await connectDB();
+  return app.listen(PORT, () => {
     console.log(`⚡ CricMotion AI Backend running on port ${PORT}`);
     console.log(`🔗 Health check available at http://localhost:${PORT}/health`);
   });
+};
+
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
 }
 
 export default app;
