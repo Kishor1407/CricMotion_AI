@@ -44,19 +44,19 @@ The interface is built with an ultra-engaging **Snapchat-inspired Neobrutalism**
 
 | Document | Description |
 | :--- | :--- |
-| **[`cricmotion_ai_prd.md`](./cricmotion_ai_prd.md)** | Full Product Requirements Document, core constraints, user journeys & resilience |
-| **[`system_design_architecture_v1.md`](./system_design_architecture_v1.md)** | System topology, Client-Server-Worker DAG, storage architecture & deployment |
-| **[`pipeline_technical_design.md`](./pipeline_technical_design.md)** | Technical pipeline specification, contracts, scene routing & compositing |
-| **[`database_schema_design_v1.md`](./database_schema_design_v1.md)** | MongoDB schemas for users, projects, script revisions, and agent chat logs |
-| **[`api_design_document_v1.md`](./api_design_document_v1.md)** | RESTful API specifications under `/v1/` for auth, projects, and revisions |
-| **[`ui_ux_design_document.md`](./ui_ux_design_document.md)** | Neobrutalist design system, tokens, floating dock, and screen-by-screen flows |
-| **[`PROJECT_STATUS.md`](./PROJECT_STATUS.md)** | Live project tracking log, completed milestones, and roadmap |
+| **[`cricmotion_ai_prd.md`](./docs/cricmotion_ai_prd.md)** | Full Product Requirements Document, core constraints, user journeys & resilience |
+| **[`system_design_architecture_v1.md`](./docs/system_design_architecture_v1.md)** | System topology, Client-Server-Worker DAG, storage architecture & deployment |
+| **[`pipeline_technical_design.md`](./docs/pipeline_technical_design.md)** | Technical pipeline specification, contracts, scene routing & compositing |
+| **[`database_schema_design_v1.md`](./docs/database_schema_design_v1.md)** | MongoDB schemas for users, projects, script revisions, and agent chat logs |
+| **[`api_design_document_v1.md`](./docs/api_design_document_v1.md)** | RESTful API specifications under `/v1/` for auth, projects, and revisions |
+| **[`ui_ux_design_document.md`](./docs/ui_ux_design_document.md)** | Neobrutalist design system, tokens, floating dock, and screen-by-screen flows |
+| **[`PROJECT_STATUS.md`](./docs/PROJECT_STATUS.md)** | Live project tracking log, completed milestones, and roadmap |
 
 ---
 
 ## 🚦 Current Status
 
-- **Current Milestone:** **Phase 1 Complete** (System Architecture & Foundation Documentation finalized).
-- **Next Up:** Phase 2 (Project Scaffolding & Core Infrastructure Setup).
+- **Completed Modules:** Modules 1 through 5 (Authentication, Dashboard, Studio Shell, Gemini AI Planning, Voice Synthesis & Alignment).
+- **Next Up:** Module 6 (AI Presenter Lip-Sync Engine with D-ID Studio API).
 
-For full details on development history and current status, refer to **[`PROJECT_STATUS.md`](./PROJECT_STATUS.md)**.
+For full details on development history and current status, refer to **[`docs/PROJECT_STATUS.md`](./docs/PROJECT_STATUS.md)**.
