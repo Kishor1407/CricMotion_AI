@@ -24,5 +24,8 @@
     "neobrutalism"
   ],
   "author": "Kishor Hegge",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "puppeteer-core": "^25.18.1"
+  }
 }

@@ -6,10 +6,13 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**'
-      }
-    ]
-  }
+        hostname: '**',
+      },
+    ],
+  },
+  experimental: {
+    webpackBuildWorker: false,
+  },
 };
 
 export default nextConfig;

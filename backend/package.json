@@ -8,6 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "worker": "tsx watch src/workers/videoWorker.ts",
     "build": "tsc",
+    "build": "node --max-old-space-size=4096 ../node_modules/typescript/bin/tsc",
     "start": "node dist/server.js"
   },
   "dependencies": {

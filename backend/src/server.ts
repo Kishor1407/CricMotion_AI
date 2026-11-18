@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { connectDB } from './config/db';
 import authRoutes from './routes/authRoutes';
+import projectRoutes from './routes/projectRoutes';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -35,6 +36,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // Mount Routes
 app.use('/v1/auth', authRoutes);
+app.use('/v1/projects', projectRoutes);
 
 // Root API v1 Route
 app.get('/v1', (_req: Request, res: Response) => {
