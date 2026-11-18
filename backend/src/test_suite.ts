@@ -21,6 +21,7 @@ import {
   synthesizeAvatarVideo,
   synthesizeProjectAvatar,
 } from './services/avatarService';
+import { compileTimelineFrames } from './services/remotionService';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -417,6 +418,102 @@ const runAllTests = async () => {
     }
   } catch (err: any) {
     console.error('❌ [13/13] FAILED: End-to-End Project Avatar Pipeline error:', err.message);
+    failed++;
+  }
+
+  // TEST 14: Module 7 - Timeline Frame Compiler & 30 FPS Bounds Mapping (REMOTION-01)
+  try {
+    console.log('\n⏳ [14/15] Testing Module 7: Timeline Frame Compiler (REMOTION-01)...');
+    const sampleStoryboard = [
+      {
+        sceneNumber: 1,
+        title: 'Opening Yorker',
+        narration: 'Bumrah charges in under floodlights.',
+        startSeconds: 0,
+        endSeconds: 10,
+        contextCategory: 'match-action',
+        wordTimestamps: [
+          { word: 'Bumrah', startMs: 0, endMs: 800 },
+          { word: 'charges', startMs: 850, endMs: 1600 },
+          { word: 'in', startMs: 1650, endMs: 2000 },
+        ],
+      },
+      {
+        sceneNumber: 2,
+        title: 'Auction Climax',
+        narration: 'Sold to Lucknow for 27 Crores!',
+        startSeconds: 10,
+        endSeconds: 22,
+        contextCategory: 'auction-financial',
+      },
+    ];
+
+    const compiled = compileTimelineFrames(sampleStoryboard, 30);
+
+    if (
+      compiled.scenes.length === 2 &&
+      compiled.scenes[0].startFrame === 0 &&
+      compiled.scenes[0].durationInFrames === 300 && // 10s * 30fps
+      compiled.scenes[1].startFrame === 300 &&
+      compiled.scenes[1].durationInFrames === 360 && // 12s * 30fps
+      compiled.totalDurationInFrames === 660 &&
+      compiled.scenes[0].wordTimestamps[0].startFrame === 0 &&
+      compiled.scenes[0].wordTimestamps[0].endFrame === 24 // 0.8s * 30 = 24 frames
+    ) {
+      console.log(`✅ [14/15] PASSED: Successfully compiled ${compiled.scenes.length} scenes to ${compiled.totalDurationInFrames} frames (30 FPS) with exact word bounds.`);
+      passed++;
+    } else {
+      throw new Error(`Unexpected compiled timeline: ${JSON.stringify(compiled)}`);
+    }
+  } catch (err: any) {
+    console.error('❌ [14/15] FAILED: Timeline Frame Compiler error:', err.message);
+    failed++;
+  }
+
+  // TEST 15: Module 7 - Context Routing & Telemetry Metrics (REMOTION-03 to REMOTION-07)
+  try {
+    console.log('\n⏳ [15/15] Testing Module 7: Context Routing & Telemetry Metrics (REMOTION-03 to REMOTION-07)...');
+    const testScenes = [
+      {
+        sceneNumber: 1,
+        title: 'Speed Radar',
+        narration: 'Haris Rauf clocks 149.2 kph on the MCG gun.',
+        contextCategory: 'match-action',
+      },
+      {
+        sceneNumber: 2,
+        title: 'Mega Bid',
+        narration: 'Bidding hits record 27.0 Crore for Pant.',
+        contextCategory: 'auction-financial',
+      },
+      {
+        sceneNumber: 3,
+        title: 'Head to Head',
+        narration: 'Virat Kohli vs Haris Rauf classic encounter.',
+        contextCategory: 'stats-comparison',
+      },
+    ];
+
+    const result = compileTimelineFrames(testScenes, 30);
+    const s1 = result.scenes[0];
+    const s2 = result.scenes[1];
+    const s3 = result.scenes[2];
+
+    if (
+      s1.contextCategory === 'match-action' &&
+      s1.metrics?.speedKph === 149.2 &&
+      s2.contextCategory === 'auction-financial' &&
+      s2.metrics?.auctionAmountCr === 27.0 &&
+      s3.contextCategory === 'stats-comparison' &&
+      s3.metrics?.winProbability === 88
+    ) {
+      console.log(`✅ [15/15] PASSED: All 3 cricket context categories successfully routed with dynamic kinetic telemetry.`);
+      passed++;
+    } else {
+      throw new Error(`Context routing or metrics parsing mismatch: ${JSON.stringify(result.scenes)}`);
+    }
+  } catch (err: any) {
+    console.error('❌ [15/15] FAILED: Context Routing error:', err.message);
     failed++;
   }
 

@@ -25,8 +25,24 @@ import {
   ChevronRight,
   TrendingUp,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { apiRequest, authStorage, User } from '@/lib/api';
 import { FloatingDock } from '@/components/FloatingDock';
+import { compileTimelineFrames } from '@/remotion/compiler';
+
+// REMOTION-13: Client @remotion/player In-Browser Compositor
+const RemotionPlayerWrapper = dynamic(
+  () => import('@/remotion/PlayerWrapper').then((mod) => mod.PlayerWrapper),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-black text-brand-yellow font-display font-black text-xs gap-2 p-6 text-center">
+        <span className="w-8 h-8 border-3 border-brand-yellow border-t-transparent rounded-full animate-spin" />
+        INITIALIZING REMOTION 30FPS COMPOSITING ENGINE...
+      </div>
+    ),
+  }
+);
 
 interface WordTimestamp {
   word: string;
@@ -138,6 +154,12 @@ function WorkspaceContent() {
   const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
   const [isSynthesizingAvatar, setIsSynthesizingAvatar] = useState(false);
   const [audioNotification, setAudioNotification] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<'remotion' | 'inspector'>('remotion');
+
+  // REMOTION-01: Compile storyboard scenes into deterministic 30 FPS Remotion timeline
+  const { scenes: remotionScenes, totalDurationInFrames } = React.useMemo(() => {
+    return compileTimelineFrames(project.storyboard);
+  }, [project.storyboard]);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -949,16 +971,38 @@ function WorkspaceContent() {
           <div className="lg:col-span-5 xl:col-span-5 flex flex-col items-center">
             
             {/* View Mode Controls */}
-            <div className="w-full max-w-[360px] flex items-center justify-between mb-3 px-2">
-              <span className="text-xs font-display font-black text-brand-yellow tracking-wider flex items-center gap-1.5">
-                <Play className="w-3.5 h-3.5 fill-brand-yellow" />
-                9:16 LIVE STAGE
-              </span>
+            <div className="w-full max-w-[360px] flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-1 bg-black p-1 border-2 border-black rounded-full shadow-brutal-sm">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('remotion')}
+                  className={`text-[10px] font-display font-black px-3 py-1 rounded-full transition-all cursor-pointer ${
+                    previewMode === 'remotion'
+                      ? 'bg-brand-yellow text-black border border-black shadow-sm'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  ⚡ REMOTION 30FPS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('inspector')}
+                  className={`text-[10px] font-display font-black px-3 py-1 rounded-full transition-all cursor-pointer ${
+                    previewMode === 'inspector'
+                      ? 'bg-brand-yellow text-black border border-black shadow-sm'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  LAYERS
+                </button>
+              </div>
+
               <button
+                type="button"
                 onClick={() => setShowSocialOverlay(!showSocialOverlay)}
-                className={`text-[11px] font-display font-bold px-2.5 py-1 rounded-full border border-black transition-all ${
+                className={`text-[10px] font-display font-bold px-2.5 py-1 rounded-full border border-black transition-all cursor-pointer ${
                   showSocialOverlay
-                    ? 'bg-brand-yellow text-black'
+                    ? 'bg-brand-yellow text-black shadow-brutal-sm'
                     : 'bg-neutral-800 text-gray-400'
                 }`}
               >
@@ -972,8 +1016,63 @@ function WorkspaceContent() {
               {/* Phone Inner Screen Glass */}
               <div className="relative w-full h-full rounded-[32px] overflow-hidden bg-neutral-900 border-2 border-black flex flex-col justify-between">
                 
-                {/* 1. Dynamic Island / Speaker Notch */}
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-40 border border-neutral-800 flex items-center justify-between px-3">
+                {previewMode === 'remotion' ? (
+                  <div className="relative w-full h-full rounded-[30px] overflow-hidden bg-black flex flex-col justify-between">
+                    {/* 1. Dynamic Island / Speaker Notch */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-40 border border-neutral-800 flex items-center justify-between px-3 pointer-events-none">
+                      <div className="flex items-center gap-1">
+                        {isPlaying && (
+                          <div className="flex items-end gap-0.5 h-2.5">
+                            <span className="w-0.5 bg-brand-yellow animate-pulse h-full" />
+                            <span className="w-0.5 bg-brand-yellow animate-pulse h-2" />
+                            <span className="w-0.5 bg-brand-yellow animate-pulse h-1" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-900/60 border border-blue-500/30" />
+                    </div>
+
+                    {/* REMOTION COMPOSITING PLAYER (Module 7) */}
+                    <RemotionPlayerWrapper
+                      scenes={remotionScenes}
+                      avatarVideoUrl={project.artifacts?.avatarVideoUrl}
+                      totalDurationInFrames={totalDurationInFrames}
+                      isPlaying={isPlaying}
+                      onPlayChange={setIsPlaying}
+                      onFrameUpdate={(frame) => {
+                        const sec = frame / 30;
+                        setCurrentTime(sec);
+                        const curScene = project.storyboard.findIndex(
+                          (s) => sec >= s.startSeconds && sec <= s.endSeconds
+                        );
+                        if (curScene !== -1 && curScene !== activeSceneIndex) {
+                          setActiveSceneIndex(curScene);
+                        }
+                      }}
+                    />
+
+                    {/* Optional Social Interface Overlay (TikTok / Reels icons) */}
+                    {showSocialOverlay && (
+                      <div className="absolute right-3 bottom-24 z-30 flex flex-col items-center gap-3.5 text-white pointer-events-none opacity-85">
+                        <div className="flex flex-col items-center">
+                          <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
+                            <Flame className="w-4 h-4 text-brand-yellow fill-brand-yellow" />
+                          </div>
+                          <span className="text-[9px] font-bold mt-0.5">142K</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
+                            <Share2 className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-[9px] font-bold mt-0.5">Share</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* 1. Dynamic Island / Speaker Notch */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-40 border border-neutral-800 flex items-center justify-between px-3">
                   <div className="flex items-center gap-1">
                     {isPlaying && (
                       <div className="flex items-end gap-0.5 h-2.5">
@@ -1166,6 +1265,8 @@ function WorkspaceContent() {
                     {Math.round(currentTime)}s
                   </span>
                 </div>
+                  </>
+                )}
 
               </div>
             </div>
