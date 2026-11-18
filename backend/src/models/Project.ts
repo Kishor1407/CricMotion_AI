@@ -10,6 +10,24 @@ export type ProjectStatus =
   | 'PUBLISHED'
   | 'FAILED';
 
+export interface IStoryboardScene {
+  sceneNumber: number;
+  title: string;
+  narration: string;
+  startSeconds: number;
+  endSeconds: number;
+  contextCategory: 'auction-financial' | 'match-action' | 'press-conference' | 'stats-comparison' | 'news-headline';
+  visualPrompt?: string;
+  tickerHeadline?: string;
+}
+
+export interface IChatMessage {
+  id?: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: Date;
+}
+
 export interface IProject extends Document {
   _id: mongoose.Types.ObjectId;
   ownerId: mongoose.Types.ObjectId;
@@ -24,6 +42,8 @@ export interface IProject extends Document {
     avatarModelId: string;
     voiceModelId: string;
   };
+  storyboard: IStoryboardScene[];
+  chatHistory: IChatMessage[];
   artifacts: {
     audioTrackUrl?: string;
     avatarVideoUrl?: string;
@@ -105,6 +125,35 @@ const ProjectSchema = new Schema<IProject>(
         default: 'eleven_multilingual_v2_british',
       },
     },
+    storyboard: [
+      {
+        sceneNumber: { type: Number, required: true },
+        title: { type: String, required: true },
+        narration: { type: String, required: true },
+        startSeconds: { type: Number, default: 0 },
+        endSeconds: { type: Number, default: 15 },
+        contextCategory: {
+          type: String,
+          enum: [
+            'auction-financial',
+            'match-action',
+            'press-conference',
+            'stats-comparison',
+            'news-headline',
+          ],
+          default: 'match-action',
+        },
+        visualPrompt: { type: String },
+        tickerHeadline: { type: String },
+      },
+    ],
+    chatHistory: [
+      {
+        role: { type: String, enum: ['user', 'assistant', 'system'], required: true },
+        content: { type: String, required: true },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
     artifacts: {
       audioTrackUrl: { type: String },
       avatarVideoUrl: { type: String },
