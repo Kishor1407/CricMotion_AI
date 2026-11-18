@@ -17,6 +17,10 @@ import {
   synthesizeVoice,
   synthesizeProjectAudio,
 } from './services/audioService';
+import {
+  synthesizeAvatarVideo,
+  synthesizeProjectAvatar,
+} from './services/avatarService';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -333,14 +337,86 @@ const runAllTests = async () => {
       throw new Error('Project audio pipeline did not properly populate audioUrl or wordTimestamps');
     }
 
-    // Clean up temporary test project and test user
+    // Clean up temporary test project
     await Project.deleteOne({ _id: testProj._id });
+  } catch (err: any) {
+    console.error('❌ [11/13] FAILED: End-to-End Project Audio Pipeline error:', err.message);
+    failed++;
+  }
+
+  // TEST 12: Module 6 - D-ID Talks Dispatcher & Avatar Synthesizer (AVATAR-01 & AVATAR-03)
+  try {
+    console.log('\n⏳ [12/13] Testing Module 6: D-ID Talks Dispatcher & Avatar Synthesizer...');
+    const avatarResult = await synthesizeAvatarVideo({
+      projectId: 'test_avatar_suite_123',
+      presenterModelId: 'old_british_reporter_01',
+      fallbackText: 'Bumrah strikes with a 148 kph toe-crusher yorker!',
+    });
+
+    if (
+      avatarResult &&
+      avatarResult.avatarVideoUrl &&
+      (avatarResult.engine === 'd-id' || avatarResult.engine === 'fallback-motion')
+    ) {
+      console.log(`✅ [12/13] PASSED: Avatar synthesized via [${avatarResult.engine}]. Video: ${avatarResult.avatarVideoUrl}`);
+      passed++;
+    } else {
+      throw new Error(`Avatar synthesis failed: ${JSON.stringify(avatarResult)}`);
+    }
+  } catch (err: any) {
+    console.error('❌ [12/13] FAILED: Avatar Dispatcher error:', err.message);
+    failed++;
+  }
+
+  // TEST 13: Module 6 - End-to-End Project Avatar Pipeline (AVATAR-02)
+  try {
+    console.log('\n⏳ [13/13] Testing Module 6: End-to-End Project Avatar Pipeline...');
+    const avatarProj = await Project.create({
+      ownerId: testUserId || new mongoose.Types.ObjectId(),
+      title: 'Avatar Presenter Test Reel',
+      sourcePrompt: 'Kohli MCG classic finish breakdown',
+      status: 'PLANNING_SCRIPT',
+      config: {
+        targetDurationSeconds: 30,
+        vibe: 'High Energy Hype',
+        avatarModelId: 'old_british_reporter_01',
+        voiceModelId: 'eleven_multilingual_v2_british',
+      },
+      storyboard: [
+        {
+          sceneNumber: 1,
+          title: 'The Unthinkable Equation',
+          narration: '28 needed off 8 balls at the MCG.',
+          startSeconds: 0,
+          endSeconds: 10,
+          contextCategory: 'match-action',
+        },
+      ],
+      chatHistory: [],
+    });
+
+    const projectAvatarRes = await synthesizeProjectAvatar(avatarProj._id.toString());
+    const refreshedAvatarProj = await Project.findById(avatarProj._id);
+
+    if (
+      refreshedAvatarProj &&
+      refreshedAvatarProj.status === 'READY' &&
+      refreshedAvatarProj.artifacts?.avatarVideoUrl
+    ) {
+      console.log(`✅ [13/13] PASSED: Project avatar pipeline successfully mounted presenter video: ${refreshedAvatarProj.artifacts.avatarVideoUrl} (Status: ${refreshedAvatarProj.status})`);
+      passed++;
+    } else {
+      throw new Error(`Project avatar pipeline failed: ${JSON.stringify(refreshedAvatarProj?.artifacts)}`);
+    }
+
+    // Clean up temporary test project and test user
+    await Project.deleteOne({ _id: avatarProj._id });
     if (testUserId) {
       await User.deleteOne({ _id: testUserId });
       console.log('🧹 Cleaned up temporary test project and test user record.');
     }
   } catch (err: any) {
-    console.error('❌ [11/11] FAILED: End-to-End Project Audio Pipeline error:', err.message);
+    console.error('❌ [13/13] FAILED: End-to-End Project Avatar Pipeline error:', err.message);
     failed++;
   }
 

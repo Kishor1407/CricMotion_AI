@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Neobrutalist Shadow & Base -->
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="#000000" />
+  <rect x="4" y="4" width="52" height="52" rx="14" fill="#FFFC00" stroke="#000000" stroke-width="3" />
+  
+  <!-- Cricket Seam Curves -->
+  <path d="M14 20 C22 28, 22 36, 14 44" fill="none" stroke="#000000" stroke-width="2.5" stroke-dasharray="2 2" stroke-linecap="round" />
+  <path d="M46 20 C38 28, 38 36, 46 44" fill="none" stroke="#000000" stroke-width="2.5" stroke-dasharray="2 2" stroke-linecap="round" />
+  
+  <!-- Center Electric Bolt / Cricket Strike -->
+  <polygon points="34,13 19,34 30,34 26,51 45,28 33,28" fill="#000000" stroke="#000000" stroke-width="1.5" stroke-linejoin="round" />
+  <polygon points="33,15 21,33 30,33 27,47 42,29 33,29" fill="#FFFC00" />
+</svg>

@@ -71,6 +71,7 @@ interface ProjectData {
   artifacts?: {
     thumbnailUrl?: string;
     audioTrackUrl?: string;
+    avatarVideoUrl?: string;
   };
 }
 
@@ -135,10 +136,12 @@ function WorkspaceContent() {
   const [isMuted, setIsMuted] = useState(false);
   const [showSocialOverlay, setShowSocialOverlay] = useState(true);
   const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
+  const [isSynthesizingAvatar, setIsSynthesizingAvatar] = useState(false);
   const [audioNotification, setAudioNotification] = useState<string | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const avatarVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Authenticate user & load project if param present
   useEffect(() => {
@@ -174,6 +177,7 @@ function WorkspaceContent() {
             visualPrompt: 'Haris Rauf charging in at 149 kph under floodlights.',
             tickerHeadline: '⚡ 28 NEEDED OFF 8 BALLS // T20 WORLD CUP CLIMAX',
             wordTimestamps: calculateCadenceTimestamps(sc1Text, 10),
+            audioUrl: '/uploads/audio/demo_scene_1.mp3',
           },
           {
             sceneNumber: 2,
@@ -185,6 +189,7 @@ function WorkspaceContent() {
             visualPrompt: 'Slow motion straight six over long-on with tracer line.',
             tickerHeadline: '★ SHOT OF THE CENTURY // 105M MAXIMUM DETECTED',
             wordTimestamps: calculateCadenceTimestamps(sc2Text, 12),
+            audioUrl: '/uploads/audio/demo_scene_2.mp3',
           },
           {
             sceneNumber: 3,
@@ -196,6 +201,7 @@ function WorkspaceContent() {
             visualPrompt: 'Wrist flick tracer path graphic with bat speed meter peaking at 138 kph.',
             tickerHeadline: '⚡ BAT SPEED: 138 KPH // WIN PROBABILITY SWINGS TO 88%',
             wordTimestamps: calculateCadenceTimestamps(sc3Text, 10),
+            audioUrl: '/uploads/audio/demo_scene_3.mp3',
           },
           {
             sceneNumber: 4,
@@ -207,6 +213,7 @@ function WorkspaceContent() {
             visualPrompt: 'Virat Kohli emotional celebration, fireworks and roaring stadium.',
             tickerHeadline: '👑 KOHLI 82* (53) // INDIA WINS BY 4 WICKETS',
             wordTimestamps: calculateCadenceTimestamps(sc4Text, 13),
+            audioUrl: '/uploads/audio/demo_scene_4.mp3',
           },
         ],
         chatHistory: [
@@ -219,6 +226,11 @@ function WorkspaceContent() {
             content: '⚡ CricMotion AI generated 4 dynamic scenes. Timestamps, kinetic captions, and audio sync ready for preview.',
           },
         ],
+        artifacts: {
+          thumbnailUrl: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1080&auto=format&fit=crop',
+          avatarVideoUrl: '/uploads/avatars/default_presenter.mp4',
+          audioTrackUrl: '/uploads/audio/demo_scene_1.mp3',
+        },
       }));
     }
   }, [projectIdParam, router]);
@@ -300,6 +312,53 @@ function WorkspaceContent() {
     }
   };
 
+  // Synthesize AI Presenter lip-sync video (Module 6)
+  const handleSynthesizeAvatar = async () => {
+    setIsSynthesizingAvatar(true);
+    setAudioNotification('👤 Synthesizing AI Presenter Lip-Sync (D-ID Engine)...');
+    try {
+      let targetProjectId = project._id;
+      if (!targetProjectId) {
+        const createRes = await apiRequest('/projects', {
+          method: 'POST',
+          body: JSON.stringify({
+            sourcePrompt: project.sourcePrompt || project.title,
+            config: project.config,
+            title: project.title,
+          }),
+        });
+        if (createRes.data) {
+          setProject(createRes.data);
+          targetProjectId = createRes.data._id;
+          router.push(`/workspace?projectId=${createRes.data._id}`);
+        }
+      }
+
+      if (targetProjectId) {
+        const avatarRes = await apiRequest(`/projects/${targetProjectId}/synthesize-avatar`, {
+          method: 'POST',
+        });
+        if (avatarRes.data) {
+          setProject((prev) => ({
+            ...prev,
+            artifacts: {
+              ...prev.artifacts,
+              avatarVideoUrl: avatarRes.data.artifacts?.avatarVideoUrl || avatarRes.metrics?.avatarVideoUrl,
+            },
+          }));
+          setAudioNotification('✅ AI Presenter lip-sync synthesized and ready at 30 FPS!');
+          setTimeout(() => setAudioNotification(null), 4000);
+        }
+      }
+    } catch (err: any) {
+      console.error('Avatar synthesis failed:', err.message);
+      setAudioNotification(`⚠️ Presenter synthesis note: ${err.message}`);
+      setTimeout(() => setAudioNotification(null), 5000);
+    } finally {
+      setIsSynthesizingAvatar(false);
+    }
+  };
+
   // Video preview playback timer simulation
   useEffect(() => {
     let interval: any;
@@ -345,7 +404,8 @@ function WorkspaceContent() {
 
     if (isPlaying) {
       const sceneOffset = Math.max(0, currentTime - currentScene.startSeconds);
-      if (Math.abs(audioRef.current.currentTime - sceneOffset) > 0.4) {
+      // Only re-seek if drift is greater than 1.2s to prevent rapid seeking stutter and glitching
+      if (Math.abs(audioRef.current.currentTime - sceneOffset) > 1.2) {
         audioRef.current.currentTime = sceneOffset;
       }
       audioRef.current.play().catch(() => {});
@@ -365,6 +425,16 @@ function WorkspaceContent() {
       setActiveSceneIndex(0);
     }
   };
+
+  // Avatar video playback synchronization effect (Module 6)
+  useEffect(() => {
+    if (!avatarVideoRef.current) return;
+    if (isPlaying) {
+      avatarVideoRef.current.play().catch(() => {});
+    } else {
+      avatarVideoRef.current.pause();
+    }
+  }, [isPlaying]);
 
   // Handle Omnibar submit
   const handleGenerate = async (e?: React.FormEvent) => {
@@ -608,6 +678,48 @@ function WorkspaceContent() {
                       : project.storyboard.some((s) => s.audioUrl)
                       ? 'RE-SYNTHESIZE VOICEOVER'
                       : 'SYNTHESIZE VOICEOVER (11LABS)'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Module 6: AI Presenter Lip-Sync Control Strip */}
+              <div className="pt-3 border-t-2 border-black/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      project.artifacts?.avatarVideoUrl
+                        ? 'bg-emerald-400 animate-pulse'
+                        : 'bg-brand-yellow'
+                    }`}
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-display font-black tracking-wider text-white uppercase flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-brand-yellow" />
+                      {project.artifacts?.avatarVideoUrl
+                        ? 'AI PRESENTER LIP-SYNC ACTIVE'
+                        : 'PRESENTER READY TO GENERATE'}
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold">
+                      {project.artifacts?.avatarVideoUrl
+                        ? '30 FPS Video PIP Synchronized (D-ID)'
+                        : 'Presenter portrait mapped for lip-sync'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSynthesizeAvatar}
+                  disabled={isSynthesizingAvatar || project.storyboard.length === 0}
+                  className="w-full sm:w-auto px-4 py-2 bg-brand-yellow hover:bg-yellow-300 text-black border-2 border-black rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-brutal-sm hover:shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>
+                    {isSynthesizingAvatar
+                      ? 'SYNTHESIZING LIP-SYNC (D-ID)...'
+                      : project.artifacts?.avatarVideoUrl
+                      ? 'RE-GENERATE PRESENTER'
+                      : 'GENERATE AI PRESENTER (D-ID)'}
                   </span>
                 </button>
               </div>
@@ -911,23 +1023,38 @@ function WorkspaceContent() {
                 {/* Gradient Vignette Overlays */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/60 pointer-events-none" />
 
-                {/* 3. Z-10 Presenter PIP / Avatar Layer */}
+                {/* 3. Z-10 Presenter PIP / Avatar Video Layer (Module 6) */}
                 <div className="absolute top-12 left-4 z-20 flex items-center gap-2">
-                  <div className="relative w-12 h-12 rounded-full border-2 border-brand-yellow bg-black overflow-hidden shadow-brutal-sm">
-                    <div
-                      className="w-full h-full bg-cover bg-center"
-                      style={{
-                        backgroundImage: `url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop')`,
-                      }}
-                    />
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-brand-green border border-black rounded-full animate-ping" />
+                  <div className="relative w-14 h-14 rounded-full border-3 border-brand-yellow bg-black overflow-hidden shadow-brutal-sm">
+                    {project.artifacts?.avatarVideoUrl ? (
+                      <video
+                        ref={avatarVideoRef}
+                        src={
+                          project.artifacts.avatarVideoUrl.startsWith('http')
+                            ? project.artifacts.avatarVideoUrl
+                            : `http://localhost:5050${project.artifacts.avatarVideoUrl}`
+                        }
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full bg-cover bg-center"
+                        style={{
+                          backgroundImage: `url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop')`,
+                        }}
+                      />
+                    )}
+                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-brand-green border border-black rounded-full animate-ping" />
                   </div>
-                  <div className="bg-black/80 backdrop-blur-md px-2 py-0.5 rounded border border-black">
-                    <span className="text-[10px] font-display font-extrabold text-white block">
+                  <div className="bg-black/85 backdrop-blur-md px-2.5 py-1 rounded border border-black shadow-sm">
+                    <span className="text-[10px] font-display font-black text-white block uppercase tracking-wide">
                       AI PRESENTER
                     </span>
-                    <span className="text-[8px] font-mono font-bold text-brand-yellow">
-                      LIP-SYNC: 30 FPS
+                    <span className="text-[8px] font-mono font-bold text-brand-yellow block">
+                      {isPlaying ? '▶ LIP-SYNC: 30 FPS' : '❚❚ LIP-SYNC READY'}
                     </span>
                   </div>
                 </div>

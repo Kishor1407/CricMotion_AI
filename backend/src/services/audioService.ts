@@ -214,33 +214,97 @@ export function generateSpeechModulatedWav(
 }
 
 /**
+ * Helper to fetch a speech chunk from Neural TTS
+ */
+async function fetchGoogleTTSChunk(text: string, lang: string = 'en-GB'): Promise<Buffer> {
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    },
+  });
+  if (!res.ok) throw new Error(`Google TTS request failed with status ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/**
+ * Synthesizes natural human speech MP3 audio for arbitrary text
+ */
+export async function synthesizeRealSpeechTTS(text: string, lang: string = 'en-GB'): Promise<Buffer> {
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+  const buffers: Buffer[] = [];
+  for (const sentence of sentences) {
+    const trimmed = sentence.trim();
+    if (!trimmed) continue;
+    if (trimmed.length > 150) {
+      const parts = trimmed.split(/,\s*/);
+      for (const part of parts) {
+        if (part.trim()) {
+          const buf = await fetchGoogleTTSChunk(part.trim(), lang);
+          buffers.push(buf);
+        }
+      }
+    } else {
+      const buf = await fetchGoogleTTSChunk(trimmed, lang);
+      buffers.push(buf);
+    }
+  }
+  return Buffer.concat(buffers);
+}
+
+/**
  * AUDIO-03: Audio Fallback & Quota Handler
  * Gracefully creates playable audio files with millisecond alignment timestamps when ElevenLabs is
  * unavailable, quota-exceeded, or forbidden.
+ * Synthesizes clear, real spoken commentary in the requested accent (British, Indian, Australian, American).
  */
-export function synthesizeFallbackAudio(
+export async function synthesizeFallbackAudio(
   narration: string,
   projectId: string = 'proj',
   sceneNumber: number = 1,
   targetDurationSec: number = 10,
-  reason: string = 'ElevenLabs fallback engine activated'
-): SynthesisResult {
+  reason: string = 'ElevenLabs fallback engine activated',
+  voiceModelId: string = 'eleven_multilingual_v2_british'
+): Promise<SynthesisResult> {
   const uploadDir = getAudioUploadDir();
   const { timestamps, totalDurationMs } = generateCadenceAlignment(narration, targetDurationSec);
 
-  const wavBuffer = generateSpeechModulatedWav(timestamps, totalDurationMs);
-  const filename = `scene_${projectId}_${sceneNumber}_${Date.now()}.wav`;
-  const filePath = path.join(uploadDir, filename);
+  // Map voice preference to natural accent
+  let lang = 'en-GB';
+  if (voiceModelId.includes('indian')) lang = 'en-IN';
+  else if (voiceModelId.includes('hype') || voiceModelId.includes('american')) lang = 'en-US';
+  else if (voiceModelId.includes('aussie')) lang = 'en-AU';
 
-  fs.writeFileSync(filePath, wavBuffer);
+  try {
+    const mp3Buffer = await synthesizeRealSpeechTTS(narration, lang);
+    const filename = `scene_${projectId}_${sceneNumber}_${Date.now()}.mp3`;
+    const filePath = path.join(uploadDir, filename);
 
-  return {
-    audioUrl: `/uploads/audio/${filename}`,
-    wordTimestamps: timestamps,
-    durationMs: totalDurationMs,
-    engine: 'fallback-synthesizer',
-    note: reason,
-  };
+    fs.writeFileSync(filePath, mp3Buffer);
+
+    return {
+      audioUrl: `/uploads/audio/${filename}`,
+      wordTimestamps: timestamps,
+      durationMs: totalDurationMs,
+      engine: 'fallback-synthesizer',
+      note: `Natural commentary voice synthesized (${lang}). ${reason}`,
+    };
+  } catch (ttsErr: any) {
+    console.warn('⚠️ Real speech synthesis unavailable, using modulated PCM backup:', ttsErr.message);
+    const wavBuffer = generateSpeechModulatedWav(timestamps, totalDurationMs);
+    const filename = `scene_${projectId}_${sceneNumber}_${Date.now()}.wav`;
+    const filePath = path.join(uploadDir, filename);
+
+    fs.writeFileSync(filePath, wavBuffer);
+
+    return {
+      audioUrl: `/uploads/audio/${filename}`,
+      wordTimestamps: timestamps,
+      durationMs: totalDurationMs,
+      engine: 'fallback-synthesizer',
+      note: reason,
+    };
+  }
 }
 
 /**
@@ -263,12 +327,13 @@ export async function synthesizeVoice(
   // If no API key provided, immediately invoke high-fidelity fallback
   if (!apiKey || apiKey.trim() === '') {
     console.warn('⚠️ ElevenLabs API key missing. Using CricMotion Fallback Audio Synthesizer.');
-    return synthesizeFallbackAudio(
+    return await synthesizeFallbackAudio(
       text,
       projectId,
       sceneNumber,
       targetDurationSec,
-      'No ElevenLabs API key configured. Fallback speech synthesizer generated 22.05kHz PCM audio.'
+      'No ElevenLabs API key configured. Fallback natural speech synthesizer generated commentary audio.',
+      voiceModelId
     );
   }
 
@@ -327,12 +392,13 @@ export async function synthesizeVoice(
     const errorMsg = error.response?.data?.detail?.message || error.message || 'ElevenLabs API Error';
     console.warn(`⚠️ ElevenLabs synthesis unavailable (${errorMsg}). Activating AUDIO-03 Fallback Synthesizer.`);
 
-    return synthesizeFallbackAudio(
+    return await synthesizeFallbackAudio(
       text,
       projectId,
       sceneNumber,
       targetDurationSec,
-      `ElevenLabs note: ${errorMsg}. Fallback speech synthesizer provided cadence alignment & audio.`
+      `ElevenLabs note: ${errorMsg}. Fallback speech synthesizer provided cadence alignment & audio.`,
+      voiceModelId
     );
   }
 }

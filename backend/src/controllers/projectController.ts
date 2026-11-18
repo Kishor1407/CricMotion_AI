@@ -7,6 +7,7 @@ import {
   synthesizeVoice,
   generateCadenceAlignment,
 } from '../services/audioService';
+import { synthesizeProjectAvatar } from '../services/avatarService';
 
 // Seed demo projects for new accounts so the dashboard looks vibrant
 const DEMO_REELS = [
@@ -18,6 +19,8 @@ const DEMO_REELS = [
     stats: { views: 1420000, durationSeconds: 42, tag: '🔥 1.4M VIEWS' },
     artifacts: {
       thumbnailUrl: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1080&auto=format&fit=crop',
+      avatarVideoUrl: '/uploads/avatars/default_presenter.mp4',
+      audioTrackUrl: '/uploads/audio/demo_scene_1.mp3',
     },
     storyboard: [
       {
@@ -29,6 +32,7 @@ const DEMO_REELS = [
         contextCategory: 'match-action',
         visualPrompt: 'Haris Rauf charging in at 149 kph under MCG floodlights.',
         tickerHeadline: '⚡ 28 NEEDED OFF 8 BALLS // T20 WORLD CUP CLIMAX',
+        audioUrl: '/uploads/audio/demo_scene_1.mp3',
       },
       {
         sceneNumber: 2,
@@ -39,6 +43,7 @@ const DEMO_REELS = [
         contextCategory: 'match-action',
         visualPrompt: 'Slow motion straight six over long-on, ball sailing into crowd.',
         tickerHeadline: '★ SHOT OF THE CENTURY // 105M MAXIMUM DETECTED',
+        audioUrl: '/uploads/audio/demo_scene_2.mp3',
       },
       {
         sceneNumber: 3,
@@ -49,6 +54,7 @@ const DEMO_REELS = [
         contextCategory: 'stats-comparison',
         visualPrompt: 'Wrist flick tracer path graphic with bat speed meter peaking at 138 kph.',
         tickerHeadline: '⚡ BAT SPEED: 138 KPH // WIN PROBABILITY SWINGS TO 88%',
+        audioUrl: '/uploads/audio/demo_scene_3.mp3',
       },
       {
         sceneNumber: 4,
@@ -59,6 +65,7 @@ const DEMO_REELS = [
         contextCategory: 'news-headline',
         visualPrompt: 'Virat Kohli emotional celebration, fireworks and roaring stadium.',
         tickerHeadline: '👑 KOHLI 82* (53) // INDIA WINS BY 4 WICKETS',
+        audioUrl: '/uploads/audio/demo_scene_4.mp3',
       },
     ],
     chatHistory: [
@@ -480,6 +487,36 @@ export const synthesizeAudio = async (req: AuthRequest, res: Response): Promise<
     res.status(500).json({
       success: false,
       message: 'Failed to synthesize project audio',
+      error: error.message,
+    });
+  }
+};
+
+export const synthesizeAvatar = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const ownerId = req.user?.id;
+    const { projectId } = req.params;
+
+    if (!projectId) {
+      res.status(400).json({ success: false, message: 'projectId is required' });
+      return;
+    }
+
+    const id = Array.isArray(projectId) ? projectId[0] : projectId;
+    console.log(`👤 Triggering avatar lip-sync synthesis for project ${id}...`);
+    const result = await synthesizeProjectAvatar(id, ownerId);
+
+    res.status(200).json({
+      success: true,
+      message: 'AI Presenter lip-sync synthesis completed successfully',
+      data: result.project,
+      metrics: result.metrics,
+    });
+  } catch (error: any) {
+    console.error('synthesizeAvatar error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to synthesize avatar presenter video',
       error: error.message,
     });
   }
