@@ -6,6 +6,7 @@ import {
   updateProject,
   addProjectChat,
   deleteProject,
+  synthesizeAudio,
 } from '../controllers/projectController';
 import { authenticateJWT } from '../middleware/authMiddleware';
 
@@ -18,6 +19,7 @@ router.post('/', createProject);
 router.get('/:projectId', getProjectById);
 router.patch('/:projectId', updateProject);
 router.post('/:projectId/chat', addProjectChat);
+router.post('/:projectId/synthesize-audio', synthesizeAudio);
 router.delete('/:projectId', deleteProject);
 
 export default router;

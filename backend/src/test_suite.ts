@@ -11,6 +11,12 @@ import {
   generateStoryboard,
   reviseStoryboard,
 } from './services/geminiService';
+import {
+  parseElevenLabsAlignment,
+  generateCadenceAlignment,
+  synthesizeVoice,
+  synthesizeProjectAudio,
+} from './services/audioService';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -186,7 +192,7 @@ const runAllTests = async () => {
 
   // TEST 7: Module 4 - Conversational Storyboard Revision
   try {
-    console.log('\n⏳ [7/7] Testing Module 4: Conversational Storyboard Revision...');
+    console.log('\n⏳ [7/11] Testing Module 4: Conversational Storyboard Revision...');
     const revision = await reviseStoryboard(
       generatedPlan.scenes,
       'Make the tone faster and add Hindi commentary expressions',
@@ -194,19 +200,147 @@ const runAllTests = async () => {
     );
 
     if (revision && revision.scenes && revision.scenes.length > 0 && revision.replyMessage) {
-      console.log(`✅ [7/7] PASSED: AI Revision applied: "${revision.replyMessage.slice(0, 60)}..."`);
+      console.log(`✅ [7/11] PASSED: AI Revision applied: "${revision.replyMessage.slice(0, 60)}..."`);
       passed++;
     } else {
       throw new Error('Storyboard revision failed to return updated scenes or reply');
     }
+  } catch (err: any) {
+    console.error('❌ [7/11] FAILED: Storyboard Revision error:', err.message);
+    failed++;
+  }
 
-    // Clean up test user
-    if (testUserId) {
-      await User.deleteOne({ _id: testUserId });
-      console.log('🧹 Cleaned up temporary test user record.');
+  // TEST 8: Module 5 - Word-Level Alignment Parser (AUDIO-02)
+  try {
+    console.log('\n⏳ [8/11] Testing Module 5: ElevenLabs Word-Level Millisecond Alignment Parser...');
+    const mockAlignment = {
+      characters: ['V', 'i', 'r', 'a', 't', ' ', 'K', 'o', 'h', 'l', 'i', '!'],
+      character_start_times_seconds: [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55],
+      character_end_times_seconds: [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6],
+    };
+    const parsed = parseElevenLabsAlignment(mockAlignment);
+    if (
+      parsed.length === 2 &&
+      parsed[0].word === 'Virat' &&
+      parsed[0].startMs === 0 &&
+      parsed[0].endMs === 250 &&
+      parsed[1].word === 'Kohli!' &&
+      parsed[1].startMs === 300 &&
+      parsed[1].endMs === 600
+    ) {
+      console.log(`✅ [8/11] PASSED: Successfully parsed ${parsed.length} words with millisecond precision.`);
+      passed++;
+    } else {
+      throw new Error(`Unexpected parser output: ${JSON.stringify(parsed)}`);
     }
   } catch (err: any) {
-    console.error('❌ [7/7] FAILED: Storyboard Revision error:', err.message);
+    console.error('❌ [8/11] FAILED: Word Alignment Parser error:', err.message);
+    failed++;
+  }
+
+  // TEST 9: Module 5 - Cadence-Based Speech Alignment Engine (AUDIO-02)
+  try {
+    console.log('\n⏳ [9/11] Testing Module 5: Commentary Cadence Alignment Engine...');
+    const narrationText = 'Haris Rauf charging in at 149 kph under floodlights.';
+    const cadence = generateCadenceAlignment(narrationText, 8);
+    if (cadence.timestamps.length === 9 && cadence.totalDurationMs > 5000) {
+      console.log(`✅ [9/11] PASSED: Generated ${cadence.timestamps.length} word timestamps (${cadence.totalDurationMs}ms).`);
+      passed++;
+    } else {
+      throw new Error(`Cadence alignment failed: count=${cadence.timestamps.length}, ms=${cadence.totalDurationMs}`);
+    }
+  } catch (err: any) {
+    console.error('❌ [9/11] FAILED: Cadence Alignment error:', err.message);
+    failed++;
+  }
+
+  // TEST 10: Module 5 - Voice Synthesis & High-Fidelity Fallback (AUDIO-01 & AUDIO-03)
+  try {
+    console.log('\n⏳ [10/11] Testing Module 5: Voice Synthesis & AUDIO-03 Fallback...');
+    const voiceResult = await synthesizeVoice(
+      '28 needed off 8 balls at the MCG.',
+      'eleven_multilingual_v2_british',
+      'test_project_suite',
+      1,
+      6
+    );
+
+    if (
+      voiceResult &&
+      voiceResult.audioUrl &&
+      voiceResult.wordTimestamps.length > 0 &&
+      (voiceResult.engine === 'elevenlabs' || voiceResult.engine === 'fallback-synthesizer')
+    ) {
+      console.log(`✅ [10/11] PASSED: Audio synthesized via [${voiceResult.engine}]. URL: ${voiceResult.audioUrl} (${voiceResult.wordTimestamps.length} words)`);
+      passed++;
+    } else {
+      throw new Error(`Voice synthesis failed or missing timestamps: ${JSON.stringify(voiceResult)}`);
+    }
+  } catch (err: any) {
+    console.error('❌ [10/11] FAILED: Voice Synthesis error:', err.message);
+    failed++;
+  }
+
+  // TEST 11: Module 5 - End-to-End Project Audio Synthesis Pipeline
+  try {
+    console.log('\n⏳ [11/11] Testing Module 5: End-to-End Project Audio Pipeline...');
+    const testProj = await Project.create({
+      ownerId: testUserId || new mongoose.Types.ObjectId(),
+      title: 'Pant Mega Auction Test',
+      sourcePrompt: 'Rishabh Pant mega auction test',
+      status: 'PLANNING_SCRIPT',
+      config: {
+        targetDurationSeconds: 30,
+        vibe: 'High Energy Hype',
+        avatarModelId: 'old_british_reporter_01',
+        voiceModelId: 'eleven_multilingual_v2_british',
+      },
+      storyboard: [
+        {
+          sceneNumber: 1,
+          title: 'The Opening Bid',
+          narration: 'The bidding opens at 2 Crore rupees.',
+          startSeconds: 0,
+          endSeconds: 8,
+          contextCategory: 'auction-financial',
+        },
+        {
+          sceneNumber: 2,
+          title: 'Record Hammer Fall',
+          narration: 'Going once, going twice, sold to Lucknow for 27 Crores!',
+          startSeconds: 8,
+          endSeconds: 16,
+          contextCategory: 'auction-financial',
+        },
+      ],
+      chatHistory: [],
+    });
+
+    const synthResult = await synthesizeProjectAudio(testProj._id.toString());
+    const refreshed = await Project.findById(testProj._id);
+
+    if (
+      refreshed &&
+      refreshed.status === 'READY' &&
+      refreshed.storyboard[0].audioUrl &&
+      refreshed.storyboard[0].wordTimestamps &&
+      refreshed.storyboard[0].wordTimestamps.length > 0 &&
+      refreshed.artifacts?.audioTrackUrl
+    ) {
+      console.log(`✅ [11/11] PASSED: Project audio pipeline fully synthesized all scenes. Status: ${refreshed.status}, AudioTrack: ${refreshed.artifacts.audioTrackUrl}`);
+      passed++;
+    } else {
+      throw new Error('Project audio pipeline did not properly populate audioUrl or wordTimestamps');
+    }
+
+    // Clean up temporary test project and test user
+    await Project.deleteOne({ _id: testProj._id });
+    if (testUserId) {
+      await User.deleteOne({ _id: testUserId });
+      console.log('🧹 Cleaned up temporary test project and test user record.');
+    }
+  } catch (err: any) {
+    console.error('❌ [11/11] FAILED: End-to-End Project Audio Pipeline error:', err.message);
     failed++;
   }
 

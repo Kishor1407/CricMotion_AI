@@ -10,6 +10,12 @@ export type ProjectStatus =
   | 'PUBLISHED'
   | 'FAILED';
 
+export interface IWordTimestamp {
+  word: string;
+  startMs: number;
+  endMs: number;
+}
+
 export interface IStoryboardScene {
   sceneNumber: number;
   title: string;
@@ -19,6 +25,8 @@ export interface IStoryboardScene {
   contextCategory: 'auction-financial' | 'match-action' | 'press-conference' | 'stats-comparison' | 'news-headline';
   visualPrompt?: string;
   tickerHeadline?: string;
+  audioUrl?: string;
+  wordTimestamps?: IWordTimestamp[];
 }
 
 export interface IChatMessage {
@@ -145,6 +153,14 @@ const ProjectSchema = new Schema<IProject>(
         },
         visualPrompt: { type: String },
         tickerHeadline: { type: String },
+        audioUrl: { type: String },
+        wordTimestamps: [
+          {
+            word: { type: String, required: true },
+            startMs: { type: Number, required: true },
+            endMs: { type: Number, required: true },
+          },
+        ],
       },
     ],
     chatHistory: [

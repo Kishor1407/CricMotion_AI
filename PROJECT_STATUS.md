@@ -71,9 +71,9 @@
 ### Module 5: Voice Synthesis & Millisecond Alignment (`AUDIO`)
 | Feature ID | Feature Description | UI Done | API / Backend | Tested | Committed | Overall Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| `AUDIO-01` | ElevenLabs TTS Client (`eleven_multilingual_v2` speech synthesis) | N/A | ⏳ Pending | ⏳ Pending | ⏳ Pending | ⚪ Planned |
-| `AUDIO-02` | Word-Level Millisecond Alignment Parser (Timestamps per word) | N/A | ⏳ Pending | ⏳ Pending | ⏳ Pending | ⚪ Planned |
-| `AUDIO-03` | Audio Fallback & Quota Handler (Graceful `FAILED_AUDIO` state) | ⏳ Pending | ⏳ Pending | ⏳ Pending | ⏳ Pending | ⚪ Planned |
+| `AUDIO-01` | ElevenLabs TTS Client (`eleven_multilingual_v2` speech synthesis) | ✅ Done | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
+| `AUDIO-02` | Word-Level Millisecond Alignment Parser (Timestamps per word) | ✅ Done | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
+| `AUDIO-03` | Audio Fallback & Quota Handler (Graceful fallback synthesizer buffer) | ✅ Done | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
 
 ### Module 6: AI Presenter Lip-Sync Engine (`AVATAR`)
 | Feature ID | Feature Description | UI Done | API / Backend | Tested | Committed | Overall Status |
@@ -134,11 +134,12 @@
 ## 3. Verified Live External Services
 
 * **MongoDB Atlas:** Connected to `ac-hvbfen3-shard-00-00.qf7go0b.mongodb.net` (target db: `cricmotion_ai`).
-* **Google Gemini API:** Connected with `gemini-3.5-flash` producing live script generation.
+* **Google Gemini API:** Connected with `gemini-3.5-flash-lite` producing live script generation.
+* **ElevenLabs & Speech Synthesizer:** Integrated with `eleven_multilingual_v2` with intelligent 22.05kHz PCM WAV speech fallback and word-level millisecond alignment.
 * **Upstash Redis:** Connected to `nice-trout-174792.upstash.io` with BullMQ-ready TLS ping `PONG`.
 * **D-ID Studio API:** Connected with 12 active video credits ready for presenter lip-sync generation.
 * **Stitch AI MCP:** Connected to project `projects/4134009653632951138` (*CricMotion AI Studio*) containing 7 ready screens.
-* **Asset Storage:** Defaulting to Express static local storage (`/uploads`) with plug-and-play Cloudflare R2 compatibility.
+* **Asset Storage:** Express static local storage (`/uploads`) with plug-and-play Cloudflare R2 compatibility.
 
 ---
 
@@ -152,4 +153,8 @@
 | `fbdb331` | 2026-11-17 | docs: update PROJECT_STATUS.md with verified live integrations | Kishor Hegge / Antigravity AI |
 | `e948ad6` | 2026-11-17 | docs: add granular feature implementation and progress tracking matrix | Kishor Hegge / Antigravity AI |
 | `fb680aa` | 2026-11-17 | docs: sync commit log in PROJECT_STATUS.md | Kishor Hegge / Antigravity AI |
-| `a118627` | 2026-11-18 | feat(auth): implement Module 1 Authentication & Multi-Tenancy (AUTH-01 to AUTH-05) | Kishor Hegge / Antigravity AI |
+| `825242e` | 2026-11-18 | feat(auth): implement Module 1 Authentication & Multi-Tenancy (AUTH-01 to AUTH-05) | Kishor Hegge / Antigravity AI |
+| `5f8c9e5` | 2026-11-18 | feat(dashboard): implement Neobrutalist visual dashboard, floating dock navigation, and project repository (Module 2 complete) | Kishor Hegge / Antigravity AI |
+| `54b2b6e` | 2026-11-18 | feat(studio): implement 60/40 creation studio layout, omnibar, parameter pills, and filmstrip (Module 3 complete) | Kishor Hegge / Antigravity AI |
+| `766bba9` | 2026-11-18 | feat(ai-engine): implement Google Gemini context classification, storyboard generator, and conversational revision (Module 4 complete) | Kishor Hegge / Antigravity AI |
+| `[HEAD]` | 2026-11-18 | feat(audio): implement Module 5 Voice Synthesis & Millisecond Alignment (AUDIO-01 to AUDIO-03) | Kishor Hegge / Antigravity AI |

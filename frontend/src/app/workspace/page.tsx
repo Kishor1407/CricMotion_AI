@@ -28,6 +28,12 @@ import {
 import { apiRequest, authStorage, User } from '@/lib/api';
 import { FloatingDock } from '@/components/FloatingDock';
 
+interface WordTimestamp {
+  word: string;
+  startMs: number;
+  endMs: number;
+}
+
 interface StoryboardScene {
   sceneNumber: number;
   title: string;
@@ -37,6 +43,8 @@ interface StoryboardScene {
   contextCategory?: string;
   visualPrompt?: string;
   tickerHeadline?: string;
+  audioUrl?: string;
+  wordTimestamps?: WordTimestamp[];
 }
 
 interface ChatMessage {
@@ -62,7 +70,20 @@ interface ProjectData {
   chatHistory: ChatMessage[];
   artifacts?: {
     thumbnailUrl?: string;
+    audioTrackUrl?: string;
   };
+}
+
+function calculateCadenceTimestamps(narration: string, durationSec: number = 10): WordTimestamp[] {
+  const words = narration.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const totalMs = Math.max(1000, durationSec * 1000);
+  const msPerWord = Math.max(180, Math.floor(totalMs / words.length));
+  return words.map((w, idx) => ({
+    word: w,
+    startMs: idx * msPerWord,
+    endMs: (idx + 1) * msPerWord - 25,
+  }));
 }
 
 const STARTER_PROMPTS = [
@@ -113,8 +134,11 @@ function WorkspaceContent() {
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [showSocialOverlay, setShowSocialOverlay] = useState(true);
+  const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
+  const [audioNotification, setAudioNotification] = useState<string | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Authenticate user & load project if param present
   useEffect(() => {
@@ -128,7 +152,12 @@ function WorkspaceContent() {
     if (projectIdParam) {
       loadProject(projectIdParam);
     } else {
-      // Setup demo initial state
+      // Setup demo initial state with pre-calculated word timestamps
+      const sc1Text = '28 needed off 8 balls at the MCG. 90,000 screaming fans, Pakistan on the verge of victory.';
+      const sc2Text = 'Back-foot punch straight back over the bowler’s head. A physics-defying six into the Melbourne night sky!';
+      const sc3Text = 'Next ball: angled on the pads, flicked effortlessly over fine leg! 16 off two deliveries!';
+      const sc4Text = 'Ashwin lifts it over mid-off, Kohli drops to his knees. The greatest T20 innings ever played.';
+
       setProject((prev) => ({
         ...prev,
         title: 'Kohli 82* vs PAK (MCG Climax)',
@@ -138,42 +167,46 @@ function WorkspaceContent() {
           {
             sceneNumber: 1,
             title: 'The Unthinkable Equation',
-            narration: '28 needed off 8 balls at the MCG. 90,000 screaming fans, Pakistan on the verge of victory.',
+            narration: sc1Text,
             startSeconds: 0,
             endSeconds: 10,
             contextCategory: 'match-action',
             visualPrompt: 'Haris Rauf charging in at 149 kph under floodlights.',
             tickerHeadline: '⚡ 28 NEEDED OFF 8 BALLS // T20 WORLD CUP CLIMAX',
+            wordTimestamps: calculateCadenceTimestamps(sc1Text, 10),
           },
           {
             sceneNumber: 2,
             title: 'Shot of an Emperor',
-            narration: 'Back-foot punch straight back over the bowler’s head. A physics-defying six into the Melbourne night sky!',
+            narration: sc2Text,
             startSeconds: 10,
             endSeconds: 22,
             contextCategory: 'match-action',
             visualPrompt: 'Slow motion straight six over long-on with tracer line.',
             tickerHeadline: '★ SHOT OF THE CENTURY // 105M MAXIMUM DETECTED',
+            wordTimestamps: calculateCadenceTimestamps(sc2Text, 12),
           },
           {
             sceneNumber: 3,
             title: 'Flick Over Fine Leg',
-            narration: 'Next ball: angled on the pads, flicked effortlessly over fine leg! 16 off two deliveries!',
+            narration: sc3Text,
             startSeconds: 22,
             endSeconds: 32,
             contextCategory: 'stats-comparison',
             visualPrompt: 'Wrist flick tracer path graphic with bat speed meter peaking at 138 kph.',
             tickerHeadline: '⚡ BAT SPEED: 138 KPH // WIN PROBABILITY SWINGS TO 88%',
+            wordTimestamps: calculateCadenceTimestamps(sc3Text, 10),
           },
           {
             sceneNumber: 4,
             title: 'The King Reclaims Melbourne',
-            narration: 'Ashwin lifts it over mid-off, Kohli drops to his knees. The greatest T20 innings ever played.',
+            narration: sc4Text,
             startSeconds: 32,
             endSeconds: 45,
             contextCategory: 'news-headline',
             visualPrompt: 'Virat Kohli emotional celebration, fireworks and roaring stadium.',
             tickerHeadline: '👑 KOHLI 82* (53) // INDIA WINS BY 4 WICKETS',
+            wordTimestamps: calculateCadenceTimestamps(sc4Text, 13),
           },
         ],
         chatHistory: [
@@ -195,8 +228,16 @@ function WorkspaceContent() {
       setLoading(true);
       const res = await apiRequest(`/projects/${id}`);
       if (res.data) {
-        setProject(res.data);
-        if (res.data.storyboard?.length > 0) {
+        // Ensure word timestamps exist for all scenes
+        const enrichedStoryboard = (res.data.storyboard || []).map((sc: StoryboardScene) => ({
+          ...sc,
+          wordTimestamps:
+            sc.wordTimestamps && sc.wordTimestamps.length > 0
+              ? sc.wordTimestamps
+              : calculateCadenceTimestamps(sc.narration, (sc.endSeconds || 10) - (sc.startSeconds || 0)),
+        }));
+        setProject({ ...res.data, storyboard: enrichedStoryboard });
+        if (enrichedStoryboard.length > 0) {
           setActiveSceneIndex(0);
         }
       }
@@ -204,6 +245,58 @@ function WorkspaceContent() {
       console.error('Failed to load project:', err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Synthesize voiceover audio and millisecond timestamps (Module 5)
+  const handleSynthesizeAudio = async () => {
+    setIsSynthesizingAudio(true);
+    setAudioNotification('🎙️ Synthesizing Voiceover (ElevenLabs & Cadence Engine)...');
+    try {
+      let targetProjectId = project._id;
+      // If project has not been saved yet, save it first
+      if (!targetProjectId) {
+        const createRes = await apiRequest('/projects', {
+          method: 'POST',
+          body: JSON.stringify({
+            sourcePrompt: project.sourcePrompt || project.title,
+            config: project.config,
+            title: project.title,
+          }),
+        });
+        if (createRes.data) {
+          setProject(createRes.data);
+          targetProjectId = createRes.data._id;
+          router.push(`/workspace?projectId=${createRes.data._id}`);
+          setAudioNotification('✅ Voiceover & millisecond alignments synthesized successfully!');
+          setTimeout(() => setAudioNotification(null), 4000);
+          return;
+        }
+      }
+
+      if (targetProjectId) {
+        const synthRes = await apiRequest(`/projects/${targetProjectId}/synthesize-audio`, {
+          method: 'POST',
+        });
+        if (synthRes.data) {
+          const enrichedStoryboard = (synthRes.data.storyboard || []).map((sc: StoryboardScene) => ({
+            ...sc,
+            wordTimestamps:
+              sc.wordTimestamps && sc.wordTimestamps.length > 0
+                ? sc.wordTimestamps
+                : calculateCadenceTimestamps(sc.narration, (sc.endSeconds || 10) - (sc.startSeconds || 0)),
+          }));
+          setProject({ ...synthRes.data, storyboard: enrichedStoryboard });
+          setAudioNotification('✅ Voiceover & millisecond alignments synthesized successfully!');
+          setTimeout(() => setAudioNotification(null), 4000);
+        }
+      }
+    } catch (err: any) {
+      console.error('Audio synthesis failed:', err.message);
+      setAudioNotification(`⚠️ Synthesis note: ${err.message}`);
+      setTimeout(() => setAudioNotification(null), 5000);
+    } finally {
+      setIsSynthesizingAudio(false);
     }
   };
 
@@ -232,6 +325,46 @@ function WorkspaceContent() {
     }
     return () => clearInterval(interval);
   }, [isPlaying, project, activeSceneIndex]);
+
+  // Audio playback synchronization effect (Module 5)
+  useEffect(() => {
+    if (!audioRef.current) return;
+    const currentScene = project.storyboard[activeSceneIndex];
+    if (!currentScene?.audioUrl) return;
+
+    const fullAudioUrl = currentScene.audioUrl.startsWith('http')
+      ? currentScene.audioUrl
+      : `http://localhost:5050${currentScene.audioUrl}`;
+
+    if (audioRef.current.src !== fullAudioUrl) {
+      audioRef.current.src = fullAudioUrl;
+      audioRef.current.load();
+    }
+
+    audioRef.current.muted = isMuted;
+
+    if (isPlaying) {
+      const sceneOffset = Math.max(0, currentTime - currentScene.startSeconds);
+      if (Math.abs(audioRef.current.currentTime - sceneOffset) > 0.4) {
+        audioRef.current.currentTime = sceneOffset;
+      }
+      audioRef.current.play().catch(() => {});
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isPlaying, activeSceneIndex, isMuted, currentTime, project.storyboard]);
+
+  const handleAudioEnded = () => {
+    if (activeSceneIndex < project.storyboard.length - 1) {
+      const nextIdx = activeSceneIndex + 1;
+      setActiveSceneIndex(nextIdx);
+      setCurrentTime(project.storyboard[nextIdx].startSeconds);
+    } else {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setActiveSceneIndex(0);
+    }
+  };
 
   // Handle Omnibar submit
   const handleGenerate = async (e?: React.FormEvent) => {
@@ -437,6 +570,55 @@ function WorkspaceContent() {
                   </select>
                 </div>
               </div>
+
+              {/* Module 5: Audio Synthesis & Word Alignment Control Strip */}
+              <div className="pt-3 border-t-2 border-black/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      project.storyboard.some((s) => s.audioUrl)
+                        ? 'bg-emerald-400 animate-pulse'
+                        : 'bg-brand-yellow'
+                    }`}
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-display font-black tracking-wider text-white uppercase flex items-center gap-1.5">
+                      <Mic className="w-3.5 h-3.5 text-brand-yellow" />
+                      {project.storyboard.some((s) => s.audioUrl)
+                        ? 'VOICEOVER & ALIGNMENT ACTIVE'
+                        : 'VOICEOVER READY TO SYNTHESIZE'}
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold">
+                      {project.storyboard.reduce((acc, s) => acc + (s.wordTimestamps?.length || 0), 0)}{' '}
+                      words millisecond-aligned
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSynthesizeAudio}
+                  disabled={isSynthesizingAudio || project.storyboard.length === 0}
+                  className="w-full sm:w-auto px-4 py-2 bg-brand-yellow hover:bg-yellow-300 text-black border-2 border-black rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-brutal-sm hover:shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Sparkles className="w-3.5 h-3.5 fill-black" />
+                  <span>
+                    {isSynthesizingAudio
+                      ? 'SYNTHESIZING AUDIO & TIMESTAMPS...'
+                      : project.storyboard.some((s) => s.audioUrl)
+                      ? 'RE-SYNTHESIZE VOICEOVER'
+                      : 'SYNTHESIZE VOICEOVER (11LABS)'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Toast / Notification pill */}
+              {audioNotification && (
+                <div className="p-2.5 bg-neutral-900 border-2 border-brand-yellow text-brand-yellow rounded-xl text-xs font-display font-black tracking-wide flex items-center gap-2">
+                  <Volume2 className="w-4 h-4 shrink-0" />
+                  <span>{audioNotification}</span>
+                </div>
+              )}
             </div>
 
             {/* B. Storyboard Filmstrip Carousel */}
@@ -519,6 +701,33 @@ function WorkspaceContent() {
                           >
                             {scene.narration}
                           </p>
+                        </div>
+
+                        {/* Audio Status Chip (Module 5) */}
+                        <div className="flex items-center gap-1.5 my-1.5">
+                          {scene.audioUrl ? (
+                            <span
+                              className={`inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                                isActive
+                                  ? 'bg-black text-brand-yellow border-black'
+                                  : 'bg-emerald-950 text-emerald-300 border-emerald-700/60'
+                              }`}
+                            >
+                              <Volume2 className="w-2.5 h-2.5" />
+                              AUDIO READY ({scene.wordTimestamps?.length || 0}w)
+                            </span>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                                isActive
+                                  ? 'bg-black/80 text-brand-yellow border-black'
+                                  : 'bg-neutral-800 text-gray-400 border-neutral-700'
+                              }`}
+                            >
+                              <Mic className="w-2.5 h-2.5" />
+                              {scene.wordTimestamps?.length || 0} WORDS
+                            </span>
+                          )}
                         </div>
 
                         {/* Footer: Category Tag */}
@@ -652,8 +861,40 @@ function WorkspaceContent() {
               <div className="relative w-full h-full rounded-[32px] overflow-hidden bg-neutral-900 border-2 border-black flex flex-col justify-between">
                 
                 {/* 1. Dynamic Island / Speaker Notch */}
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-40 border border-neutral-800 flex items-center justify-end px-2">
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-40 border border-neutral-800 flex items-center justify-between px-3">
+                  <div className="flex items-center gap-1">
+                    {isPlaying && (
+                      <div className="flex items-end gap-0.5 h-2.5">
+                        <span className="w-0.5 bg-brand-yellow animate-pulse h-full" />
+                        <span className="w-0.5 bg-brand-yellow animate-pulse h-2" />
+                        <span className="w-0.5 bg-brand-yellow animate-pulse h-1" />
+                      </div>
+                    )}
+                  </div>
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-900/60 border border-blue-500/30" />
+                </div>
+
+                {/* Audio Element (Module 5) */}
+                <audio
+                  ref={audioRef}
+                  onEnded={handleAudioEnded}
+                  onError={() => {}}
+                />
+
+                {/* Top Audio Controls */}
+                <div className="absolute top-3 right-4 z-40 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsMuted(!isMuted)}
+                    className="p-1.5 bg-black/80 hover:bg-black text-white border border-neutral-700 rounded-full transition-transform active:scale-95 cursor-pointer"
+                    title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+                  >
+                    {isMuted ? (
+                      <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5 text-brand-yellow" />
+                    )}
+                  </button>
                 </div>
 
                 {/* 2. Z-0 Background Layer (Stadium Visuals) */}
@@ -720,16 +961,44 @@ function WorkspaceContent() {
                   </div>
                 </div>
 
-                {/* 7. Z-40 Kinetic Captions Layer */}
-                <div className="relative z-30 p-4 pb-14 bg-gradient-to-t from-black via-black/80 to-transparent">
-                  <div className="text-center font-display font-black text-sm uppercase tracking-wide">
-                    <span className="text-brand-yellow bg-black px-1.5 py-0.5 border border-black rounded shadow-sm mr-1">
-                      VIRAT
-                    </span>
-                    <span className="text-white drop-shadow-[1px_1px_0px_#000]">
-                      DROPS TO HIS KNEES!
-                    </span>
-                  </div>
+                {/* 7. Z-40 Kinetic Captions Layer (Dynamic Word Highlight Synced to Milliseconds) */}
+                <div className="relative z-30 p-4 pb-14 bg-gradient-to-t from-black via-black/85 to-transparent min-h-[96px] flex items-center justify-center">
+                  {(() => {
+                    const sceneDuration = Math.max(1, (activeScene.endSeconds || 10) - (activeScene.startSeconds || 0));
+                    const sceneWords =
+                      activeScene.wordTimestamps && activeScene.wordTimestamps.length > 0
+                        ? activeScene.wordTimestamps
+                        : calculateCadenceTimestamps(activeScene.narration, sceneDuration);
+
+                    const sceneElapsedMs = Math.max(0, Math.round((currentTime - (activeScene.startSeconds || 0)) * 1000));
+                    const activeWordIdx = sceneWords.findIndex(
+                      (w) => sceneElapsedMs >= w.startMs && sceneElapsedMs <= w.endMs
+                    );
+
+                    return (
+                      <div className="text-center flex flex-wrap items-center justify-center gap-1.5 max-w-full">
+                        {sceneWords.map((item, wIdx) => {
+                          const isCurrentWord = wIdx === activeWordIdx;
+                          const isPastWord = sceneElapsedMs > item.endMs;
+
+                          return (
+                            <span
+                              key={wIdx}
+                              className={`transition-all duration-150 inline-block px-1.5 py-0.5 rounded font-display font-black tracking-wide text-xs uppercase ${
+                                isCurrentWord
+                                  ? 'bg-brand-yellow text-black border-2 border-black scale-110 shadow-brutal-sm -rotate-1 z-10'
+                                  : isPastWord
+                                  ? 'text-white drop-shadow-[1px_1px_0px_#000]'
+                                  : 'text-neutral-500 opacity-60'
+                              }`}
+                            >
+                              {item.word}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* 8. Optional Social Interface Overlay (TikTok / Reels icons) */}

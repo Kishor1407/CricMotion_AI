@@ -2,6 +2,11 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { Project } from '../models/Project';
 import { generateStoryboard, reviseStoryboard } from '../services/geminiService';
+import {
+  synthesizeProjectAudio,
+  synthesizeVoice,
+  generateCadenceAlignment,
+} from '../services/audioService';
 
 // Seed demo projects for new accounts so the dashboard looks vibrant
 const DEMO_REELS = [
@@ -127,11 +132,43 @@ const DEMO_REELS = [
     title: 'Dhoni Helicopter Six Clutch',
     sourcePrompt: 'MS Dhoni finishes in style with his legendary helicopter shot under pressure.',
     category: 'match-action',
-    status: 'RENDERING_VIDEO',
-    stats: { views: 920000, durationSeconds: 35, tag: 'RENDERING 74%' },
+    status: 'READY',
+    stats: { views: 920000, durationSeconds: 35, tag: '⚡ 920K VIEWS' },
     artifacts: {
       thumbnailUrl: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=1080&auto=format&fit=crop',
     },
+    storyboard: [
+      {
+        sceneNumber: 1,
+        title: 'Final Over Tension',
+        narration: 'Twelve needed off four balls. Wankhede holds its collective breath as the bowler runs in.',
+        startSeconds: 0,
+        endSeconds: 12,
+        contextCategory: 'match-action',
+        visualPrompt: 'Stadium floodlights, high tension crowd with heartbeat monitor pulsing.',
+        tickerHeadline: '⚡ 12 NEEDED OFF 4 BALLS // DHONI ON STRIKE',
+      },
+      {
+        sceneNumber: 2,
+        title: 'The Iconic Helicopter',
+        narration: 'Full yorker dug out with sheer wrist power! The bat whips around in the legendary helicopter arc over wide long-on!',
+        startSeconds: 12,
+        endSeconds: 24,
+        contextCategory: 'match-action',
+        visualPrompt: 'Slow motion 360 rotation bat tracker with bat speed peaking at 144 kph.',
+        tickerHeadline: '★ LEGENDARY HELICOPTER SHOT // 98M MAXIMUM LAUNCHED',
+      },
+      {
+        sceneNumber: 3,
+        title: 'Wankhede Erupts',
+        narration: 'Into the roaring Mumbai night crowd! Dhoni twirls his bat and walks off like an absolute king.',
+        startSeconds: 24,
+        endSeconds: 35,
+        contextCategory: 'news-headline',
+        visualPrompt: 'Fireworks exploding over Wankhede Stadium, golden ticker flashes victory.',
+        tickerHeadline: '👑 FINISHES OFF IN STYLE // MUMBAI ERUPTS IN CELEBRATION',
+      },
+    ],
   },
   {
     title: 'Bumrah 148 KPH Toe-Crusher',
@@ -142,26 +179,122 @@ const DEMO_REELS = [
     artifacts: {
       thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1080&auto=format&fit=crop',
     },
+    storyboard: [
+      {
+        sceneNumber: 1,
+        title: 'The Stuttering Approach',
+        narration: 'Third over of the spell. Bumrah begins his trademark unorthodox stuttering run-up.',
+        startSeconds: 0,
+        endSeconds: 10,
+        contextCategory: 'match-action',
+        visualPrompt: 'Speed radar UI ticking up as Bumrah accelerates toward the crease.',
+        tickerHeadline: '⚡ BUMRAH SPELL: 2-0-8-1 // SPEED TRACKER ENGAGED',
+      },
+      {
+        sceneNumber: 2,
+        title: '148 KPH Toe-Crusher',
+        narration: 'A blistering 148.4 kph inswinging yorker dipping right at the base of off stump!',
+        startSeconds: 10,
+        endSeconds: 20,
+        contextCategory: 'match-action',
+        visualPrompt: 'Ball trajectory arc with flame particle effect and 148.4 kph telemetry.',
+        tickerHeadline: '🔥 148.4 KPH CLOCKED // PERFECT ZERO-DEVIATION YORKER',
+      },
+      {
+        sceneNumber: 3,
+        title: 'Timber Everywhere',
+        narration: 'The off-stump cartwheels backward through the air. Pure, unadulterated bowling genius!',
+        startSeconds: 20,
+        endSeconds: 30,
+        contextCategory: 'news-headline',
+        visualPrompt: 'Shattered stumps flying in ultra-slow motion with shockwave ring.',
+        tickerHeadline: '🎯 STUMP CARTWHEELS 15 METERS // BATTER UTTERLY HELPLESS',
+      },
+    ],
   },
   {
     title: 'Starc 24.75 CR Drama',
     sourcePrompt: 'Mitchell Starc bidding war reaches unprecedented heights in IPL history.',
     category: 'auction-financial',
     status: 'READY',
-    stats: { views: 610000, durationSeconds: 49, tag: '⚡ 610K VIEWS' },
+    stats: { views: 610000, durationSeconds: 45, tag: '⚡ 610K VIEWS' },
     artifacts: {
       thumbnailUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=1080&auto=format&fit=crop',
     },
+    storyboard: [
+      {
+        sceneNumber: 1,
+        title: 'The Opening Paddle',
+        narration: 'Mitchell Starc enters the auction ring. Bids erupt immediately past ten crores!',
+        startSeconds: 0,
+        endSeconds: 15,
+        contextCategory: 'auction-financial',
+        visualPrompt: 'Paddle numbers rising with currency counter surging past 10 Cr.',
+        tickerHeadline: '⚡ RECORD SURGE // STARC BID PASSES ₹10 CRORE IN 40 SECONDS',
+      },
+      {
+        sceneNumber: 2,
+        title: 'The 20 Crore Milestone',
+        narration: 'Kolkata and Gujarat go hammer and tongs, pushing past the mythical 24 Crore barrier!',
+        startSeconds: 15,
+        endSeconds: 30,
+        contextCategory: 'auction-financial',
+        visualPrompt: 'Golden gavel slamming down with falling currency graphics.',
+        tickerHeadline: '★ CEILING SHATTERED // BID HITS ₹24.75 CRORE',
+      },
+      {
+        sceneNumber: 3,
+        title: 'History Rewritten',
+        narration: 'Going once, going twice, SOLD to KKR for 24.75 Crores! The most expensive player in cricket history.',
+        startSeconds: 30,
+        endSeconds: 45,
+        contextCategory: 'news-headline',
+        visualPrompt: 'KKR purple fireworks and gold confetti falling over auction ballroom.',
+        tickerHeadline: '👑 HISTORIC DEAL // ₹24.75 CR RECORD SHATTERED BY KKR',
+      },
+    ],
   },
   {
     title: 'Rohit Sharma Century Storm',
     sourcePrompt: 'Rohit Sharma explosive World Cup hundred demolishing bowling attacks.',
     category: 'stats-comparison',
     status: 'READY',
-    stats: { views: 2100000, durationSeconds: 60, tag: '🔥 2.1M VIEWS' },
+    stats: { views: 2100000, durationSeconds: 45, tag: '🔥 2.1M VIEWS' },
     artifacts: {
       thumbnailUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1080&auto=format&fit=crop',
     },
+    storyboard: [
+      {
+        sceneNumber: 1,
+        title: 'Opening Carnage',
+        narration: 'Rohit steps out in the first over and lofts the ball straight into the second tier!',
+        startSeconds: 0,
+        endSeconds: 15,
+        contextCategory: 'stats-comparison',
+        visualPrompt: 'Shot tracer showing ball trajectory over long-on with 102M graphic.',
+        tickerHeadline: '⚡ POWERPLAY EXPLOSION // 6 OFF FIRST BALL FACED',
+      },
+      {
+        sceneNumber: 2,
+        title: 'The Trademark Pull',
+        narration: 'Short ball bowled, and Rohit executes that effortless, lazy-elegance pull shot for six more!',
+        startSeconds: 15,
+        endSeconds: 30,
+        contextCategory: 'match-action',
+        visualPrompt: 'Wrist angle analysis graphic with bat contact speed at 142 kph.',
+        tickerHeadline: '★ MASTERCLASS PULL SHOT // 600TH INTERNATIONAL SIX',
+      },
+      {
+        sceneNumber: 3,
+        title: 'Century Standing Ovation',
+        narration: 'A breathtaking hundred off just sixty balls. The Hitman raises his bat to a roaring crowd!',
+        startSeconds: 30,
+        endSeconds: 45,
+        contextCategory: 'news-headline',
+        visualPrompt: 'Rohit Sharma celebrating with helmet raised and standing ovation.',
+        tickerHeadline: '👑 ROHIT 100* (60) // 7TH WORLD CUP CENTURY CONFIRMED',
+      },
+    ],
   },
 ];
 
@@ -186,6 +319,14 @@ export const getProjects = async (req: AuthRequest, res: Response): Promise<void
           avatarModelId: 'old_british_reporter_01',
           voiceModelId: 'eleven_multilingual_v2_british',
         },
+        storyboard: (reel.storyboard || []).map((sc) => {
+          const duration = sc.endSeconds - sc.startSeconds;
+          const { timestamps } = generateCadenceAlignment(sc.narration, duration);
+          return {
+            ...sc,
+            wordTimestamps: timestamps,
+          };
+        }),
       }));
       await Project.insertMany(seeded);
       projects = await Project.find({ ownerId }).sort({ createdAt: -1 });
@@ -281,6 +422,23 @@ export const createProject = async (req: AuthRequest, res: Response): Promise<vo
       },
     });
 
+    // Auto-synthesize voiceover and word alignment for all scenes
+    try {
+      await synthesizeProjectAudio(project._id.toString(), ownerId);
+      const enrichedProject = await Project.findById(project._id);
+      if (enrichedProject) {
+        res.status(201).json({
+          success: true,
+          message: 'Project created, storyboard planned & voiceover synthesized',
+          projectId: enrichedProject._id.toString(),
+          data: enrichedProject,
+        });
+        return;
+      }
+    } catch (audioErr: any) {
+      console.warn('Initial audio synthesis note:', audioErr.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Project created and storyboard generated via Gemini AI',
@@ -292,6 +450,36 @@ export const createProject = async (req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({
       success: false,
       message: 'Failed to create project',
+      error: error.message,
+    });
+  }
+};
+
+export const synthesizeAudio = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const ownerId = req.user?.id;
+    const { projectId } = req.params;
+
+    if (!projectId) {
+      res.status(400).json({ success: false, message: 'projectId is required' });
+      return;
+    }
+
+    const id = Array.isArray(projectId) ? projectId[0] : projectId;
+    console.log(`🎙️ Triggering audio synthesis for project ${id}...`);
+    const result = await synthesizeProjectAudio(id, ownerId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Voice synthesis & word-level millisecond alignment completed successfully',
+      data: result.project,
+      metrics: result.metrics,
+    });
+  } catch (error: any) {
+    console.error('synthesizeAudio error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to synthesize project audio',
       error: error.message,
     });
   }

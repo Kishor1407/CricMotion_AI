@@ -31,6 +31,9 @@ pnpm-debug.log*
 temp_workspace/
 *.mp4
 *.mp3
+*.wav
+backend/public/uploads/*
+!backend/public/uploads/.gitkeep
 
 # Operating System
 .DS_Store
