@@ -261,7 +261,8 @@ function WorkspaceContent() {
         if (res.data) {
           setProject((prev) => ({
             ...prev,
-            chatHistory: res.data,
+            chatHistory: res.data.chatHistory || (Array.isArray(res.data) ? res.data : prev.chatHistory),
+            storyboard: res.data.storyboard || prev.storyboard,
           }));
         }
       } else {

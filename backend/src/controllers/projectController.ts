@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { Project } from '../models/Project';
+import { generateStoryboard, reviseStoryboard } from '../services/geminiService';
 
 // Seed demo projects for new accounts so the dashboard looks vibrant
 const DEMO_REELS = [
@@ -238,63 +239,29 @@ export const createProject = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const { sourcePrompt, config, title, category } = req.body;
+    const { sourcePrompt, config, title } = req.body;
 
     if (!sourcePrompt || typeof sourcePrompt !== 'string') {
       res.status(400).json({ success: false, message: 'sourcePrompt is required' });
       return;
     }
 
-    const targetDuration = config?.targetDurationSeconds || 45;
-    const projectCategory = category || 'match-action';
-
-    // Build default initial storyboard scenes based on prompt
-    const initialScenes = [
-      {
-        sceneNumber: 1,
-        title: 'Opening Hook & Headline',
-        narration: `Breaking cricket action: ${sourcePrompt.slice(0, 80)}`,
-        startSeconds: 0,
-        endSeconds: Math.round(targetDuration * 0.25),
-        contextCategory: projectCategory,
-        visualPrompt: 'Dynamic motion graphic opening with animated broadcast ticker.',
-        tickerHeadline: `⚡ BREAKING // ${sourcePrompt.slice(0, 35).toUpperCase()}`,
-      },
-      {
-        sceneNumber: 2,
-        title: 'Core Drama & Action',
-        narration: 'Tension peaks on the pitch as momentum swings back and forth with high-velocity deliveries.',
-        startSeconds: Math.round(targetDuration * 0.25),
-        endSeconds: Math.round(targetDuration * 0.6),
-        contextCategory: projectCategory,
-        visualPrompt: 'High speed camera angle with ball-tracking velocity telemetry.',
-        tickerHeadline: '★ 150+ KPH PEAK SPEED // CRUCIAL MATCH TURNING POINT',
-      },
-      {
-        sceneNumber: 3,
-        title: 'Climax & Statistical Explosion',
-        narration: 'The defining over that sealed the outcome, backed by unbelievable numbers on the scoreboard.',
-        startSeconds: Math.round(targetDuration * 0.6),
-        endSeconds: targetDuration,
-        contextCategory: projectCategory,
-        visualPrompt: 'Side-by-side stats comparison card with fire physics particle burst.',
-        tickerHeadline: '🔥 RECORD MILESTONE ACHIEVED // 9:16 VERTICAL EXCLUSIVE',
-      },
-    ];
+    // Call Gemini AI Storyboard Planner with Zod validation
+    const plan = await generateStoryboard(sourcePrompt, config);
 
     const project = await Project.create({
       ownerId,
-      title: title || sourcePrompt.slice(0, 38).trim() + '...',
+      title: title || plan.title,
       sourcePrompt,
-      category: projectCategory,
-      status: 'PLANNING_SCRIPT',
+      category: plan.category,
+      status: 'READY',
       config: {
-        targetDurationSeconds: targetDuration,
-        vibe: config?.vibe || 'News',
+        targetDurationSeconds: config?.targetDurationSeconds || 45,
+        vibe: config?.vibe || plan.vibe || 'High Energy Hype',
         avatarModelId: config?.avatarModelId || 'old_british_reporter_01',
         voiceModelId: config?.voiceModelId || 'eleven_multilingual_v2_british',
       },
-      storyboard: initialScenes,
+      storyboard: plan.scenes,
       chatHistory: [
         {
           role: 'user',
@@ -303,20 +270,20 @@ export const createProject = async (req: AuthRequest, res: Response): Promise<vo
         },
         {
           role: 'assistant',
-          content: `⚡ CricMotion AI analyzed your prompt. Generated ${initialScenes.length} dynamic 9:16 vertical broadcast scenes. Ready for audio synthesis & Remotion rendering.`,
+          content: `⚡ CricMotion AI analyzed "${plan.title}". Generated ${plan.scenes.length} viral 9:16 vertical scenes with broadcast telemetry & synchronized captions. Ready for review!`,
           timestamp: new Date(),
         },
       ],
       stats: {
         views: 0,
-        durationSeconds: targetDuration,
+        durationSeconds: config?.targetDurationSeconds || 45,
         tag: 'DRAFT',
       },
     });
 
     res.status(201).json({
       success: true,
-      message: 'Project created and storyboard initialized',
+      message: 'Project created and storyboard generated via Gemini AI',
       projectId: project._id.toString(),
       data: project,
     });
@@ -382,11 +349,13 @@ export const addProjectChat = async (req: AuthRequest, res: Response): Promise<v
       timestamp: new Date(),
     });
 
-    // Generate intelligent AI response / revision note
-    const aiResponseText = `⚡ Revision note noted: "${message.slice(0, 40)}...". Updating scene telemetry and narrative tone to match.`;
+    // Call Gemini to intelligently revise storyboard scenes based on user comment
+    const revision = await reviseStoryboard(project.storyboard as any, message, project.config);
+    project.storyboard = revision.scenes as any;
+
     project.chatHistory.push({
       role: 'assistant',
-      content: aiResponseText,
+      content: revision.replyMessage,
       timestamp: new Date(),
     });
 
@@ -394,8 +363,11 @@ export const addProjectChat = async (req: AuthRequest, res: Response): Promise<v
 
     res.status(200).json({
       success: true,
-      message: 'Chat message added and response generated',
-      data: project.chatHistory,
+      message: 'Storyboard revised and chat updated via Gemini AI',
+      data: {
+        chatHistory: project.chatHistory,
+        storyboard: project.storyboard,
+      },
     });
   } catch (error: any) {
     console.error('addProjectChat error:', error);

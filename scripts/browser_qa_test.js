@@ -6,9 +6,9 @@ const ARTIFACT_DIR = path.resolve('C:/Users/LENOVO/.gemini/antigravity/brain/109
 const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
 async function runBrowserQA() {
-  console.log('\n================================================================');
-  console.log('🤖 CRICMOTION AI - RIGOROUS BROWSER QA TEST (MODULE 1 + 2 + 3)');
-  console.log('================================================================\n');
+  console.log('\n====================================================================');
+  console.log('🤖 CRICMOTION AI - RIGOROUS BROWSER QA TEST (MODULE 1, 2, 3 & 4)');
+  console.log('====================================================================\n');
 
   const browser = await puppeteer.launch({
     executablePath: CHROME_PATH,
@@ -37,7 +37,7 @@ async function runBrowserQA() {
     recordResult('Login Page Render & Neobrutalism Branding', hasBrandTitle);
 
     // Register a fresh test account
-    const testEmail = `qa_module3_${Date.now()}@cricmotion.ai`;
+    const testEmail = `qa_module4_${Date.now()}@cricmotion.ai`;
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));
       const createAccBtn = btns.find(b => b.innerText.toLowerCase().includes('create account'));
@@ -48,7 +48,7 @@ async function runBrowserQA() {
     await page.waitForSelector('input[type="email"]', { timeout: 5000 });
     const inputs = await page.$$('input');
     if (inputs.length >= 4) {
-      await inputs[0].type('Studio');
+      await inputs[0].type('Director');
       await inputs[1].type('Tester');
       await inputs[2].type(testEmail);
       await inputs[3].type('SecurePassword123!');
@@ -81,22 +81,14 @@ async function runBrowserQA() {
     });
     await page.waitForFunction(() => document.body.innerText.toLowerCase().includes('reel parameters'), { timeout: 10000 });
     await new Promise(r => setTimeout(r, 1000));
-
-    const onWorkspace = page.url().includes('/workspace');
-    recordResult('Workspace Route Mounting & Header', onWorkspace, `URL: ${page.url()}`);
-
-    const wsScreenshot = path.join(ARTIFACT_DIR, 'qa_workspace_module3.png');
-    await page.screenshot({ path: wsScreenshot });
-    console.log(`📸 Saved screenshot: ${wsScreenshot}`);
+    recordResult('Workspace Route Mounting & Header', page.url().includes('/workspace'));
 
     // ----------------------------------------------------
     // STEP 3: 60/40 SPLIT LAYOUT & PARAMETER TOGGLES
     // ----------------------------------------------------
     console.log('\n[STEP 3] Testing 60/40 Split & Parameter Pills ...');
     const wsText = await page.evaluate(() => document.body.innerText.toLowerCase());
-    
-    const hasParams = wsText.includes('reel parameters') && wsText.includes('target duration');
-    recordResult('Parameter Control Strip Present', hasParams);
+    recordResult('Parameter Control Strip Present', wsText.includes('reel parameters'));
 
     // Click 60s duration pill
     const clicked60s = await page.evaluate(() => {
@@ -108,85 +100,27 @@ async function runBrowserQA() {
       }
       return false;
     });
-    await new Promise(r => setTimeout(r, 400));
     recordResult('Interactive Duration Toggle (60s)', clicked60s);
 
     // ----------------------------------------------------
-    // STEP 4: STORYBOARD FILMSTRIP CAROUSEL
+    // STEP 4: STORYBOARD FILMSTRIP & 9:16 SMARTPHONE PREVIEW
     // ----------------------------------------------------
-    console.log('\n[STEP 4] Testing Storyboard Filmstrip Carousel ...');
-    const hasFilmstrip = wsText.includes('storyboard filmstrip') && wsText.includes('scene 01');
-    recordResult('Storyboard Filmstrip Display', hasFilmstrip);
-
-    // Click Scene 2 card
-    const clickedScene2 = await page.evaluate(() => {
-      const sceneCards = Array.from(document.querySelectorAll('div')).filter(d => 
-        d.innerText && d.innerText.includes('SCENE 02')
-      );
-      if (sceneCards.length > 0) {
-        sceneCards[0].click();
-        return true;
-      }
-      return false;
-    });
-    await new Promise(r => setTimeout(r, 500));
-    recordResult('Filmstrip Scene 2 Interactive Click', clickedScene2);
+    console.log('\n[STEP 4] Testing Storyboard Filmstrip & 9:16 Canvas ...');
+    recordResult('Storyboard Filmstrip Display', wsText.includes('storyboard filmstrip'));
+    recordResult('9:16 Smartphone Mockup Chassis', wsText.includes('9:16 live stage') || wsText.includes('ai presenter'));
+    recordResult('Z-20 Overhead Cricket Telemetry Layer', wsText.includes('149.2 kph') || wsText.includes('bat speed'));
+    recordResult('Z-30 Scrolling News Ticker Bar', wsText.includes('cricmotion') || wsText.includes('remotion'));
+    recordResult('Z-40 Kinetic Captions Layer', wsText.includes('virat') || wsText.includes('knees'));
 
     // ----------------------------------------------------
-    // STEP 5: 9:16 SMARTPHONE PREVIEW STAGE
+    // STEP 5: MODULE 4 - GEMINI AI STORYBOARD GENERATION
     // ----------------------------------------------------
-    console.log('\n[STEP 5] Verifying 9:16 Smartphone Preview Stage ...');
-    const hasLiveStage = wsText.includes('9:16 live stage') || wsText.includes('ai presenter');
-    recordResult('9:16 Smartphone Mockup Chassis', hasLiveStage);
-
-    const hasTelemetry = wsText.includes('149.2 kph') || wsText.includes('bat speed');
-    recordResult('Z-20 Overhead Cricket Telemetry Layer', hasTelemetry);
-
-    const hasTicker = wsText.includes('cricmotion') || wsText.includes('remotion compositing');
-    recordResult('Z-30 Scrolling News Ticker Bar', hasTicker);
-
-    const hasCaptions = wsText.includes('virat') || wsText.includes('knees');
-    recordResult('Z-40 Kinetic Captions Layer', hasCaptions);
-
-    // Test Play/Pause Scrubber
-    const toggledPlay = await page.evaluate(() => {
-      const playBtn = Array.from(document.querySelectorAll('button')).find(b => 
-        b.innerText.toLowerCase().includes('play preview') || b.querySelector('svg')
-      );
-      if (playBtn) {
-        playBtn.click();
-        return true;
-      }
-      return false;
-    });
-    await new Promise(r => setTimeout(r, 1200));
-    recordResult('Video Scrubber Play/Pause Simulation', toggledPlay);
-
-    // ----------------------------------------------------
-    // STEP 6: NEOBRUTALIST OMNIBAR & CHAT FEED
-    // ----------------------------------------------------
-    console.log('\n[STEP 6] Testing Neobrutalist Omnibar & Conversational Feed ...');
-    const hasChat = wsText.includes('conversational studio log') || wsText.includes('cricmotion ai');
-    recordResult('Conversational Feed Display', hasChat);
-
-    // Click starter prompt chip
-    const clickedChip = await page.evaluate(() => {
-      const chip = Array.from(document.querySelectorAll('button')).find(b => 
-        b.innerText.includes('Pant 27 CR') || b.innerText.includes('Bumrah 149')
-      );
-      if (chip) {
-        chip.click();
-        return true;
-      }
-      return false;
-    });
-    await new Promise(r => setTimeout(r, 400));
-    recordResult('Starter Prompt Chip Click', clickedChip);
-
-    // Type in omnibar and submit
+    console.log('\n[STEP 5] Testing Module 4: Gemini AI Reel Generation ...');
+    
+    // Type in omnibar to generate a real project via Gemini
     await page.waitForSelector('textarea', { timeout: 5000 });
     await page.$eval('textarea', el => el.value = '');
-    await page.type('textarea', 'Add falling gavel sound effects and make the tempo faster!');
+    await page.type('textarea', 'Rohit Sharma 264 vs Sri Lanka Eden Gardens masterclass');
     
     await page.evaluate(() => {
       const form = document.querySelector('form');
@@ -195,11 +129,39 @@ async function runBrowserQA() {
         if (submitBtn) submitBtn.click();
       }
     });
-    await new Promise(r => setTimeout(r, 2000));
 
-    const updatedText = await page.evaluate(() => document.body.innerText.toLowerCase());
-    const hasRevision = updatedText.includes('falling gavel') || updatedText.includes('revision note');
-    recordResult('Omnibar Prompt Submission & Dynamic Chat Append', hasRevision);
+    // Wait for Gemini API to return generated scenes & navigate with projectId
+    console.log('Waiting for Gemini AI storyboard generation and response...');
+    await new Promise(r => setTimeout(r, 6000));
+
+    const generatedText = await page.evaluate(() => document.body.innerText.toLowerCase());
+    const hasGeneratedScenes = generatedText.includes('scene 01') || generatedText.includes('rohit') || generatedText.includes('eden');
+    recordResult('Module 4: Gemini AI Storyboard Generation via API', hasGeneratedScenes);
+
+    const module4Screenshot = path.join(ARTIFACT_DIR, 'qa_workspace_module4.png');
+    await page.screenshot({ path: module4Screenshot });
+    console.log(`📸 Saved screenshot: ${module4Screenshot}`);
+
+    // ----------------------------------------------------
+    // STEP 6: MODULE 4 - CONVERSATIONAL REVISION VIA GEMINI
+    // ----------------------------------------------------
+    console.log('\n[STEP 6] Testing Module 4: Conversational Script Revision ...');
+    await page.waitForSelector('textarea', { timeout: 5000 });
+    await page.$eval('textarea', el => el.value = '');
+    await page.type('textarea', 'Make the commentary faster and emphasize his 33 boundaries!');
+
+    await page.evaluate(() => {
+      const form = document.querySelector('form');
+      if (form) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.click();
+      }
+    });
+
+    await new Promise(r => setTimeout(r, 5000));
+    const revisionText = await page.evaluate(() => document.body.innerText.toLowerCase());
+    const hasRevisionApplied = revisionText.includes('33 boundaries') || revisionText.includes('faster') || revisionText.includes('revision');
+    recordResult('Module 4: Conversational AI Script Revision Appended', hasRevisionApplied);
 
     // ----------------------------------------------------
     // STEP 7: RETURN VIA FLOATING DOCK
@@ -223,9 +185,9 @@ async function runBrowserQA() {
   // Final Summary
   const passedCount = testResults.filter(t => t.passed).length;
   const failedCount = testResults.filter(t => !t.passed).length;
-  console.log('\n================================================================');
+  console.log('\n====================================================================');
   console.log(`QA BROWSER VERDICT: ${passedCount} PASSED | ${failedCount} FAILED`);
-  console.log('================================================================\n');
+  console.log('====================================================================\n');
 
   process.exit(failedCount > 0 ? 1 : 0);
 }

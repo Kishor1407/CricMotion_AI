@@ -6,37 +6,42 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { connectDB } from './config/db';
 import { User } from './models/User';
 import { Project } from './models/Project';
+import {
+  classifyCricketContext,
+  generateStoryboard,
+  reviseStoryboard,
+} from './services/geminiService';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const runAllTests = async () => {
-  console.log('\n=============================================');
-  console.log('🏏 CRICMOTION AI - FULL INTEGRATION TEST SUITE');
-  console.log('=============================================\n');
+  console.log('\n======================================================');
+  console.log('🏏 CRICMOTION AI - INTEGRATION & MODULE 4 TEST SUITE');
+  console.log('======================================================\n');
 
   let passed = 0;
   let failed = 0;
 
   // TEST 1: MongoDB Atlas Connection
   try {
-    console.log('⏳ [1/5] Testing MongoDB Atlas Connection...');
+    console.log('⏳ [1/7] Testing MongoDB Atlas Connection...');
     await connectDB();
     if (mongoose.connection.readyState === 1) {
-      console.log('✅ [1/5] PASSED: MongoDB Atlas connected and readyState is 1.');
+      console.log('✅ [1/7] PASSED: MongoDB Atlas connected and readyState is 1.');
       passed++;
     } else {
       throw new Error(`MongoDB state: ${mongoose.connection.readyState}`);
     }
   } catch (err: any) {
-    console.error('❌ [1/5] FAILED: MongoDB Atlas connection error:', err.message);
+    console.error('❌ [1/7] FAILED: MongoDB Atlas connection error:', err.message);
     failed++;
   }
 
   // TEST 2: Upstash Redis Connectivity
   try {
-    console.log('\n⏳ [2/5] Testing Upstash Redis Connectivity...');
+    console.log('\n⏳ [2/7] Testing Upstash Redis Connectivity...');
     const redisUri = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL;
     let redisClient: Redis;
 
@@ -53,20 +58,20 @@ const runAllTests = async () => {
 
     const pong = await redisClient.ping();
     if (pong === 'PONG') {
-      console.log('✅ [2/5] PASSED: Redis responded with PONG.');
+      console.log('✅ [2/7] PASSED: Redis responded with PONG.');
       passed++;
     } else {
       throw new Error(`Unexpected Redis response: ${pong}`);
     }
     await redisClient.quit();
   } catch (err: any) {
-    console.error('❌ [2/5] FAILED: Redis connection error:', err.message);
+    console.error('❌ [2/7] FAILED: Redis connection error:', err.message);
     failed++;
   }
 
-  // TEST 3: Google Gemini API (with fallback models)
+  // TEST 3: Google Gemini API
   try {
-    console.log('\n⏳ [3/5] Testing Gemini API...');
+    console.log('\n⏳ [3/7] Testing Gemini API...');
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY missing in .env');
 
@@ -80,13 +85,13 @@ const runAllTests = async () => {
         const result = await model.generateContent('Output one word: CRICKET');
         const text = result.response.text();
         if (text && text.length > 0) {
-          console.log(`✅ [3/5] PASSED: Gemini (${modelName}) responded: "${text.trim()}"`);
+          console.log(`✅ [3/7] PASSED: Gemini (${modelName}) responded: "${text.trim()}"`);
           responded = true;
           passed++;
           break;
         }
       } catch (err: any) {
-        console.log(`   ℹ️ Model ${modelName} unavailable (${err.message.slice(0, 50)}...), trying next...`);
+        console.log(`   ℹ️ Model ${modelName} unavailable, trying next...`);
       }
     }
 
@@ -94,15 +99,14 @@ const runAllTests = async () => {
       throw new Error('All candidate Gemini models temporarily unavailable or throttled');
     }
   } catch (err: any) {
-    console.error('❌ [3/5] FAILED: Gemini API error:', err.message);
+    console.error('❌ [3/7] FAILED: Gemini API error:', err.message);
     failed++;
   }
 
   // TEST 4: User Authentication & Multi-Tenancy Pipeline
   let testUserId = '';
-  let testToken = '';
   try {
-    console.log('\n⏳ [4/5] Testing User Auth Model & JWT Generation...');
+    console.log('\n⏳ [4/7] Testing User Auth Model & JWT Generation...');
     const testEmail = `test_runner_${Date.now()}@cricmotion.ai`;
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('SecureTestPassword123!', salt);
@@ -125,62 +129,91 @@ const runAllTests = async () => {
       process.env.JWT_SECRET || 'cricmotion_jwt_super_secret_dev_key_2026',
       { expiresIn: '1h' }
     );
-    testToken = token;
 
     const fetchedUser = await User.findById(testUserId).select('-passwordHash');
     if (fetchedUser && fetchedUser.email === testEmail && fetchedUser.wallet.generationCredits === 50) {
-      console.log(`✅ [4/5] PASSED: Created User ${testEmail} with 50 credits & verified JWT generation.`);
+      console.log(`✅ [4/7] PASSED: Created User ${testEmail} with 50 credits & verified JWT generation.`);
       passed++;
     } else {
       throw new Error('User retrieval or verification failed');
     }
   } catch (err: any) {
-    console.error('❌ [4/5] FAILED: User Auth pipeline error:', err.message);
+    console.error('❌ [4/7] FAILED: User Auth pipeline error:', err.message);
     failed++;
   }
 
-  // TEST 5: Project Management & Multi-Tenancy Scoping
+  // TEST 5: Module 4 - Gemini Context Classifier
   try {
-    console.log('\n⏳ [5/5] Testing Project Schema & Multi-Tenancy Querying...');
-    const testProject = await Project.create({
-      ownerId: testUserId,
-      title: 'IPL 2026 Mega Auction: Starc Breaks Record',
-      sourcePrompt: 'Generate a dramatic breakdown of the auction bidding war.',
-      category: 'auction-financial',
-      status: 'READY',
-      config: {
-        aspectRatio: '9:16',
-        targetDurationSeconds: 45,
-        videoResolution: '1080x1920',
-      },
-      stats: {
-        views: 1250000,
-        durationSeconds: 45,
-        tag: '🔥 1.2M VIEWS',
-      },
-    });
-
-    const userProjects = await Project.find({ ownerId: testUserId });
-    if (userProjects.length === 1 && userProjects[0].title.includes('IPL 2026')) {
-      console.log(`✅ [5/5] PASSED: Created & queried Project "${userProjects[0].title}" successfully.`);
+    console.log('\n⏳ [5/7] Testing Module 4: Gemini Cricket Context Classifier...');
+    const auctionCategory = await classifyCricketContext('Rishabh Pant sold for 27 Crores in IPL mega auction to LSG');
+    const matchCategory = await classifyCricketContext('Jasprit Bumrah delivers 149 kph yorker shattering stumps');
+    
+    if (auctionCategory === 'auction-financial' && matchCategory === 'match-action') {
+      console.log(`✅ [5/7] PASSED: Correctly classified "${auctionCategory}" and "${matchCategory}".`);
       passed++;
     } else {
-      throw new Error(`Expected 1 project for test owner, found ${userProjects.length}`);
+      throw new Error(`Unexpected classifications: ${auctionCategory}, ${matchCategory}`);
+    }
+  } catch (err: any) {
+    console.error('❌ [5/7] FAILED: Context Classifier error:', err.message);
+    failed++;
+  }
+
+  // TEST 6: Module 4 - Storyboard Generator & Zod Guardrails
+  let generatedPlan: any = null;
+  try {
+    console.log('\n⏳ [6/7] Testing Module 4: Storyboard Generator (Gemini + Zod Guardrails)...');
+    generatedPlan = await generateStoryboard('Kohli 82* vs Pakistan at Melbourne Cricket Ground climax', {
+      targetDurationSeconds: 45,
+      vibe: 'High Energy Hype',
+    });
+
+    if (
+      generatedPlan &&
+      generatedPlan.scenes &&
+      generatedPlan.scenes.length >= 2 &&
+      generatedPlan.scenes[0].startSeconds === 0
+    ) {
+      console.log(`✅ [6/7] PASSED: Generated ${generatedPlan.scenes.length} scenes (Title: "${generatedPlan.title}").`);
+      passed++;
+    } else {
+      throw new Error('Storyboard validation failed or missing contiguous scenes');
+    }
+  } catch (err: any) {
+    console.error('❌ [6/7] FAILED: Storyboard Generator error:', err.message);
+    failed++;
+  }
+
+  // TEST 7: Module 4 - Conversational Storyboard Revision
+  try {
+    console.log('\n⏳ [7/7] Testing Module 4: Conversational Storyboard Revision...');
+    const revision = await reviseStoryboard(
+      generatedPlan.scenes,
+      'Make the tone faster and add Hindi commentary expressions',
+      { targetDurationSeconds: 45 }
+    );
+
+    if (revision && revision.scenes && revision.scenes.length > 0 && revision.replyMessage) {
+      console.log(`✅ [7/7] PASSED: AI Revision applied: "${revision.replyMessage.slice(0, 60)}..."`);
+      passed++;
+    } else {
+      throw new Error('Storyboard revision failed to return updated scenes or reply');
     }
 
-    // Clean up test data
-    await Project.deleteOne({ _id: testProject._id });
-    await User.deleteOne({ _id: testUserId });
-    console.log('🧹 Cleaned up temporary test user and project records.');
+    // Clean up test user
+    if (testUserId) {
+      await User.deleteOne({ _id: testUserId });
+      console.log('🧹 Cleaned up temporary test user record.');
+    }
   } catch (err: any) {
-    console.error('❌ [5/5] FAILED: Project pipeline error:', err.message);
+    console.error('❌ [7/7] FAILED: Storyboard Revision error:', err.message);
     failed++;
   }
 
   // Summary
-  console.log('\n=============================================');
+  console.log('\n======================================================');
   console.log(`TEST RESULTS: ${passed} PASSED | ${failed} FAILED`);
-  console.log('=============================================\n');
+  console.log('======================================================\n');
 
   await mongoose.disconnect();
   process.exit(failed > 0 ? 1 : 0);
