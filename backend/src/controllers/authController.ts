@@ -74,6 +74,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         email: newUser.email,
         profile: newUser.profile,
         wallet: newUser.wallet,
+        oauth: {
+          instagramConnected: Boolean(newUser.oauth?.instagramAccountId),
+          instagramAccountId: newUser.oauth?.instagramAccountId || null,
+          instagramUsername: newUser.oauth?.instagramUsername || null,
+        },
       },
     });
   } catch (error: any) {
@@ -128,6 +133,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         profile: user.profile,
         wallet: user.wallet,
         settings: user.settings,
+        oauth: {
+          instagramConnected: Boolean(user.oauth?.instagramAccountId),
+          instagramAccountId: user.oauth?.instagramAccountId || null,
+          instagramUsername: user.oauth?.instagramUsername || null,
+        },
       },
     });
   } catch (error: any) {
@@ -162,9 +172,140 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
         profile: user.profile,
         wallet: user.wallet,
         settings: user.settings,
+        oauth: {
+          instagramConnected: Boolean(user.oauth?.instagramAccountId),
+          instagramAccountId: user.oauth?.instagramAccountId || null,
+          instagramUsername: user.oauth?.instagramUsername || null,
+        },
       },
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to fetch user', error: error.message });
+  }
+};
+
+/**
+ * Connect Instagram Professional / Creator account
+ * POST /v1/auth/instagram/connect
+ */
+export const connectInstagram = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const { instagramAccountId, instagramAccessToken, instagramUsername } = req.body;
+
+    if (!instagramAccountId || typeof instagramAccountId !== 'string' || !instagramAccountId.trim()) {
+      res.status(400).json({
+        success: false,
+        message: 'Instagram Account ID is required (e.g. Meta Graph account ID).',
+      });
+      return;
+    }
+
+    if (!instagramAccessToken || typeof instagramAccessToken !== 'string' || !instagramAccessToken.trim()) {
+      res.status(400).json({
+        success: false,
+        message: 'Meta Graph API Access Token is required to link Instagram Reels publishing.',
+      });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    if (!user.oauth) {
+      user.oauth = {};
+    }
+
+    user.oauth.instagramAccountId = instagramAccountId.trim();
+    user.oauth.instagramAccessToken = instagramAccessToken.trim();
+    user.oauth.instagramUsername = (instagramUsername || '').trim();
+    user.oauth.instagramConnectedAt = new Date();
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Instagram Professional account successfully connected!',
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        profile: user.profile,
+        wallet: user.wallet,
+        settings: user.settings,
+        oauth: {
+          instagramConnected: true,
+          instagramAccountId: user.oauth.instagramAccountId,
+          instagramUsername: user.oauth.instagramUsername,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('connectInstagram error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to connect Instagram account',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Disconnect Instagram account
+ * POST /v1/auth/instagram/disconnect
+ */
+export const disconnectInstagram = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    if (user.oauth) {
+      user.oauth.instagramAccountId = undefined;
+      user.oauth.instagramAccessToken = undefined;
+      user.oauth.instagramUsername = undefined;
+      user.oauth.instagramConnectedAt = undefined;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Instagram account disconnected.',
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        profile: user.profile,
+        wallet: user.wallet,
+        settings: user.settings,
+        oauth: {
+          instagramConnected: false,
+          instagramAccountId: null,
+          instagramUsername: null,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('disconnectInstagram error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to disconnect Instagram account',
+      error: error.message,
+    });
   }
 };

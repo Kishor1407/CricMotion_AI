@@ -8,6 +8,7 @@ import {
   generateCadenceAlignment,
 } from '../services/audioService';
 import { synthesizeProjectAvatar } from '../services/avatarService';
+import { addRenderJob, getJobStatus, getProjectActiveJob } from '../queues/videoQueue';
 
 // Seed demo projects for new accounts so the dashboard looks vibrant
 const DEMO_REELS = [
@@ -313,31 +314,7 @@ export const getProjects = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    let projects = await Project.find({ ownerId }).sort({ createdAt: -1 });
-
-    // Seed demo reels for new accounts so dashboard is vibrant
-    if (projects.length === 0) {
-      const seeded = DEMO_REELS.map((reel) => ({
-        ...reel,
-        ownerId,
-        config: {
-          targetDurationSeconds: reel.stats?.durationSeconds || 45,
-          vibe: 'News',
-          avatarModelId: 'old_british_reporter_01',
-          voiceModelId: 'eleven_multilingual_v2_british',
-        },
-        storyboard: (reel.storyboard || []).map((sc) => {
-          const duration = sc.endSeconds - sc.startSeconds;
-          const { timestamps } = generateCadenceAlignment(sc.narration, duration);
-          return {
-            ...sc,
-            wordTimestamps: timestamps,
-          };
-        }),
-      }));
-      await Project.insertMany(seeded);
-      projects = await Project.find({ ownerId }).sort({ createdAt: -1 });
-    }
+    const projects = await Project.find({ ownerId }).sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -617,5 +594,133 @@ export const deleteProject = async (req: AuthRequest, res: Response): Promise<vo
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to delete project', error: error.message });
+  }
+};
+
+/**
+ * WORKER-01 & WORKER-02: Trigger asynchronous headless Remotion render job
+ */
+export const renderProject = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const ownerId = req.user?.id;
+    if (!ownerId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+    const projectId = String(req.params.projectId);
+    const { options } = req.body || {};
+
+    const project = await Project.findOne({ _id: projectId, ownerId });
+    if (!project) {
+      res.status(404).json({ success: false, message: 'Project not found' });
+      return;
+    }
+
+    if (!project.storyboard || project.storyboard.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Project must contain at least 1 scene before rendering video',
+      });
+      return;
+    }
+
+    // Check if an existing render job is currently running
+    const existingJob = await getProjectActiveJob(projectId);
+    if (existingJob) {
+      res.status(200).json({
+        success: true,
+        message: 'Render job is already in progress',
+        jobId: existingJob.id,
+        status: project.status,
+        progress: project.renderProgress || 0,
+      });
+      return;
+    }
+
+    // Enqueue new BullMQ render job
+    const job = await addRenderJob(projectId, ownerId, options);
+
+    project.status = 'RENDERING_VIDEO';
+    project.renderProgress = 0;
+    project.renderJobId = job.id;
+    await project.save();
+
+    const renderPayload = {
+      jobId: job.id,
+      status: 'RENDERING_VIDEO',
+      progress: 0,
+    };
+
+    res.status(202).json({
+      success: true,
+      message: 'Video rendering queued successfully in BullMQ',
+      ...renderPayload,
+      data: renderPayload,
+    });
+  } catch (error: any) {
+    console.error('renderProject error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to enqueue render job',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * WORKER-04: Query live render progress, job state & downloadable video URL
+ */
+export const getRenderStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const ownerId = req.user?.id;
+    if (!ownerId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+    const projectId = String(req.params.projectId);
+
+    const project = await Project.findOne({ _id: projectId, ownerId });
+    if (!project) {
+      res.status(404).json({ success: false, message: 'Project not found' });
+      return;
+    }
+
+    let jobDetails: any = null;
+    if (project.renderJobId) {
+      jobDetails = await getJobStatus(project.renderJobId);
+    }
+
+    const progressValue =
+      project.renderProgress ??
+      (project.status === 'READY' && project.artifacts?.finalRenderUrl ? 100 : 0);
+
+    const statusPayload = {
+      status: project.status,
+      progress: progressValue,
+      finalRenderUrl: project.artifacts?.finalRenderUrl,
+      jobId: project.renderJobId,
+      jobState: jobDetails?.state || (project.status === 'READY' ? 'completed' : 'unknown'),
+      errorCode: project.errorCode,
+      project: {
+        _id: project._id,
+        status: project.status,
+        renderProgress: progressValue,
+        artifacts: project.artifacts,
+      },
+      job: jobDetails,
+    };
+
+    res.status(200).json({
+      success: true,
+      ...statusPayload,
+      data: statusPayload,
+    });
+  } catch (error: any) {
+    console.error('getRenderStatus error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch render status',
+      error: error.message,
+    });
   }
 };

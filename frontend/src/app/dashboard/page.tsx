@@ -226,9 +226,13 @@ export default function DashboardPage() {
             <div className="w-16 h-16 bg-brand-yellow border-3 border-black rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-brutal-sm">
               🏏
             </div>
-            <h3 className="font-display font-black text-2xl">No Reels in this Category</h3>
+            <h3 className="font-display font-black text-2xl">
+              {projects.length === 0 ? 'No Reels Yet' : 'No Reels in this Category'}
+            </h3>
             <p className="text-gray-600 text-sm font-medium">
-              Create your first vertical cricket motion-graphic reel using the master generator.
+              {projects.length === 0
+                ? 'Your studio is completely fresh. Create your first vertical cricket reel using the AI generator.'
+                : 'Create your first vertical cricket motion-graphic reel in this category.'}
             </p>
             <Link
               href="/workspace"

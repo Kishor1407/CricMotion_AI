@@ -52,6 +52,8 @@ export interface IProject extends Document {
   };
   storyboard: IStoryboardScene[];
   chatHistory: IChatMessage[];
+  renderProgress?: number;
+  renderJobId?: string;
   artifacts: {
     audioTrackUrl?: string;
     avatarVideoUrl?: string;
@@ -170,6 +172,15 @@ const ProjectSchema = new Schema<IProject>(
         timestamp: { type: Date, default: Date.now },
       },
     ],
+    renderProgress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+    renderJobId: {
+      type: String,
+    },
     artifacts: {
       audioTrackUrl: { type: String },
       avatarVideoUrl: { type: String },

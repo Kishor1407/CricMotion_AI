@@ -12,6 +12,11 @@ export interface User {
     generationCredits: number;
     subscriptionTier: string;
   };
+  oauth?: {
+    instagramConnected?: boolean;
+    instagramAccountId?: string | null;
+    instagramUsername?: string | null;
+  };
 }
 
 export interface AuthResponse {

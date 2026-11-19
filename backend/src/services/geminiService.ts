@@ -13,7 +13,7 @@ if (!apiKey) {
 const genAI = new GoogleGenerativeAI(apiKey || 'fallback_key');
 
 // Primary and fallback models tested for high-demand resilience
-const CANDIDATE_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+const CANDIDATE_MODELS = ['gemini-3.5-flash-lite'];
 
 export const StoryboardSceneSchema = z.object({
   sceneNumber: z.number().int().positive(),
@@ -61,25 +61,30 @@ export interface GenerationConfig {
 async function callGemini(promptText: string): Promise<string> {
   let lastError: Error | null = null;
 
-  for (const modelName of CANDIDATE_MODELS) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.9,
-          maxOutputTokens: 2048,
-        },
-      });
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    for (const modelName of CANDIDATE_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.9,
+            maxOutputTokens: 2048,
+          },
+        });
 
-      const result = await model.generateContent(promptText);
-      const text = result.response.text();
-      if (text && text.trim().length > 0) {
-        return text.trim();
+        const result = await model.generateContent(promptText);
+        const text = result.response.text();
+        if (text && text.trim().length > 0) {
+          return text.trim();
+        }
+      } catch (err: any) {
+        console.warn(`[GeminiService] Attempt ${attempt} (${modelName}) error: ${err.message.slice(0, 60)}`);
+        lastError = err;
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1200));
+        }
       }
-    } catch (err: any) {
-      console.warn(`[GeminiService] Model ${modelName} error (${err.message.slice(0, 60)}), trying fallback...`);
-      lastError = err;
     }
   }
 
@@ -162,7 +167,7 @@ export async function generateStoryboard(
   const vibe = config.vibe || 'High Energy Hype';
 
   const systemPrompt = `You are CricMotion AI's Senior Cricket Video Director & Scriptwriter.
-Task: Turn this user's cricket prompt into a viral, high-velocity 9:16 vertical video script tailored for TikTok, YouTube Shorts, and Instagram Reels.
+Task: Turn this user's cricket prompt into a viral, high-velocity 9:16 vertical video script tailored exclusively for Instagram Reels.
 
 PROMPT: "${sourcePrompt}"
 TARGET DURATION: Exactly ${duration} seconds

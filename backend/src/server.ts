@@ -1,10 +1,19 @@
+import dns from 'dns';
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {
+  // Ignore in environments where setServers is restricted
+}
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { connectDB } from './config/db';
+import { createVideoWorker } from './workers/videoWorker';
 import authRoutes from './routes/authRoutes';
 import projectRoutes from './routes/projectRoutes';
+import scheduleRoutes from './routes/scheduleRoutes';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -37,6 +46,7 @@ app.get('/health', (_req: Request, res: Response) => {
 // Mount Routes
 app.use('/v1/auth', authRoutes);
 app.use('/v1/projects', projectRoutes);
+app.use('/v1/schedule', scheduleRoutes);
 
 // Root API v1 Route
 app.get('/v1', (_req: Request, res: Response) => {
@@ -46,6 +56,7 @@ app.get('/v1', (_req: Request, res: Response) => {
     endpoints: {
       auth: '/v1/auth',
       projects: '/v1/projects',
+      schedule: '/v1/schedule',
       health: '/health'
     }
   });
@@ -64,6 +75,15 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // Start Server and Connect DB
 export const startServer = async () => {
   await connectDB();
+  
+  // WORKER-01: Initialize BullMQ Video Worker
+  try {
+    createVideoWorker();
+    console.log('⚡ BullMQ Video Render Worker initialized and listening on Redis queue.');
+  } catch (workerErr: any) {
+    console.warn('⚠️ BullMQ Video Worker init note:', workerErr.message);
+  }
+
   return app.listen(PORT, () => {
     console.log(`⚡ CricMotion AI Backend running on port ${PORT}`);
     console.log(`🔗 Health check available at http://localhost:${PORT}/health`);

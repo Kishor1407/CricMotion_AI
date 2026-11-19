@@ -24,6 +24,12 @@ import {
   CheckCircle2,
   ChevronRight,
   TrendingUp,
+  Download,
+  Video,
+  Loader2,
+  Check,
+  X,
+  Calendar,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { apiRequest, authStorage, User } from '@/lib/api';
@@ -84,10 +90,12 @@ interface ProjectData {
   };
   storyboard: StoryboardScene[];
   chatHistory: ChatMessage[];
+  renderProgress?: number;
   artifacts?: {
     thumbnailUrl?: string;
     audioTrackUrl?: string;
     avatarVideoUrl?: string;
+    finalRenderUrl?: string;
   };
 }
 
@@ -156,6 +164,34 @@ function WorkspaceContent() {
   const [audioNotification, setAudioNotification] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<'remotion' | 'inspector'>('remotion');
 
+  // Module 8: Asynchronous Video Rendering & MP4 Export
+  const [isRenderingVideo, setIsRenderingVideo] = useState(false);
+  const [renderProgress, setRenderProgress] = useState(0);
+  const [renderStatusText, setRenderStatusText] = useState('QUEUED IN BULLMQ WORKER...');
+  const [renderResolution, setRenderResolution] = useState<'1080x1920' | '720x1280'>('1080x1920');
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const renderPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Module 10: Social Export & Scheduling Modal
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [schedulePlatforms, setSchedulePlatforms] = useState<string[]>(['instagram']);
+  const [scheduleDateTime, setScheduleDateTime] = useState<string>(() => {
+    const d = new Date(Date.now() + 3600000 * 2);
+    return d.toISOString().slice(0, 16);
+  });
+  const [scheduleCaption, setScheduleCaption] = useState<string>('');
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [scheduleSuccessMessage, setScheduleSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (renderPollIntervalRef.current) {
+        clearInterval(renderPollIntervalRef.current);
+      }
+    };
+  }, []);
+
   // REMOTION-01: Compile storyboard scenes into deterministic 30 FPS Remotion timeline
   const { scenes: remotionScenes, totalDurationInFrames } = React.useMemo(() => {
     return compileTimelineFrames(project.storyboard);
@@ -174,86 +210,43 @@ function WorkspaceContent() {
     }
     setUser(currentUser);
 
+    // Refresh user profile & connected channels
+    apiRequest('/auth/me')
+      .then((res) => {
+        if (res?.user) {
+          setUser(res.user);
+          authStorage.setUser(res.user);
+        }
+      })
+      .catch(() => {});
+
     if (projectIdParam) {
       loadProject(projectIdParam);
     } else {
-      // Setup demo initial state with pre-calculated word timestamps
-      const sc1Text = '28 needed off 8 balls at the MCG. 90,000 screaming fans, Pakistan on the verge of victory.';
-      const sc2Text = 'Back-foot punch straight back over the bowler’s head. A physics-defying six into the Melbourne night sky!';
-      const sc3Text = 'Next ball: angled on the pads, flicked effortlessly over fine leg! 16 off two deliveries!';
-      const sc4Text = 'Ashwin lifts it over mid-off, Kohli drops to his knees. The greatest T20 innings ever played.';
-
-      setProject((prev) => ({
-        ...prev,
-        title: 'Kohli 82* vs PAK (MCG Climax)',
-        sourcePrompt: 'Virat Kohli historic 82 not out against Pakistan at the MCG in T20 World Cup 2022.',
-        status: 'READY',
-        storyboard: [
-          {
-            sceneNumber: 1,
-            title: 'The Unthinkable Equation',
-            narration: sc1Text,
-            startSeconds: 0,
-            endSeconds: 10,
-            contextCategory: 'match-action',
-            visualPrompt: 'Haris Rauf charging in at 149 kph under floodlights.',
-            tickerHeadline: '⚡ 28 NEEDED OFF 8 BALLS // T20 WORLD CUP CLIMAX',
-            wordTimestamps: calculateCadenceTimestamps(sc1Text, 10),
-            audioUrl: '/uploads/audio/demo_scene_1.mp3',
-          },
-          {
-            sceneNumber: 2,
-            title: 'Shot of an Emperor',
-            narration: sc2Text,
-            startSeconds: 10,
-            endSeconds: 22,
-            contextCategory: 'match-action',
-            visualPrompt: 'Slow motion straight six over long-on with tracer line.',
-            tickerHeadline: '★ SHOT OF THE CENTURY // 105M MAXIMUM DETECTED',
-            wordTimestamps: calculateCadenceTimestamps(sc2Text, 12),
-            audioUrl: '/uploads/audio/demo_scene_2.mp3',
-          },
-          {
-            sceneNumber: 3,
-            title: 'Flick Over Fine Leg',
-            narration: sc3Text,
-            startSeconds: 22,
-            endSeconds: 32,
-            contextCategory: 'stats-comparison',
-            visualPrompt: 'Wrist flick tracer path graphic with bat speed meter peaking at 138 kph.',
-            tickerHeadline: '⚡ BAT SPEED: 138 KPH // WIN PROBABILITY SWINGS TO 88%',
-            wordTimestamps: calculateCadenceTimestamps(sc3Text, 10),
-            audioUrl: '/uploads/audio/demo_scene_3.mp3',
-          },
-          {
-            sceneNumber: 4,
-            title: 'The King Reclaims Melbourne',
-            narration: sc4Text,
-            startSeconds: 32,
-            endSeconds: 45,
-            contextCategory: 'news-headline',
-            visualPrompt: 'Virat Kohli emotional celebration, fireworks and roaring stadium.',
-            tickerHeadline: '👑 KOHLI 82* (53) // INDIA WINS BY 4 WICKETS',
-            wordTimestamps: calculateCadenceTimestamps(sc4Text, 13),
-            audioUrl: '/uploads/audio/demo_scene_4.mp3',
-          },
-        ],
-        chatHistory: [
-          {
-            role: 'user',
-            content: 'Generate a 45s vertical reel breakdown of Kohli’s MCG finish with 149 KPH telemetry.',
-          },
-          {
-            role: 'assistant',
-            content: '⚡ CricMotion AI generated 4 dynamic scenes. Timestamps, kinetic captions, and audio sync ready for preview.',
-          },
-        ],
-        artifacts: {
-          thumbnailUrl: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1080&auto=format&fit=crop',
-          avatarVideoUrl: '/uploads/avatars/default_presenter.mp4',
-          audioTrackUrl: '/uploads/audio/demo_scene_1.mp3',
+      // Start with a clean, empty workspace for new project creation
+      setProject({
+        title: 'New Cricket Reel Project',
+        sourcePrompt: '',
+        status: 'DRAFT',
+        category: 'match-action',
+        config: {
+          targetDurationSeconds: 45,
+          vibe: 'High Energy Hype',
+          avatarModelId: 'old_british_reporter_01',
+          voiceModelId: 'eleven_multilingual_v2_british',
         },
-      }));
+        storyboard: [],
+        chatHistory: [],
+        artifacts: {
+          thumbnailUrl: '',
+          avatarVideoUrl: '',
+          audioTrackUrl: '',
+          finalRenderUrl: '',
+        },
+      });
+      setActiveSceneIndex(0);
+      setCurrentTime(0);
+      setIsPlaying(false);
     }
   }, [projectIdParam, router]);
 
@@ -378,6 +371,161 @@ function WorkspaceContent() {
       setTimeout(() => setAudioNotification(null), 5000);
     } finally {
       setIsSynthesizingAvatar(false);
+    }
+  };
+
+  // Module 8: Start Headless MP4 Video Render & Poll BullMQ Worker
+  const handleExportVideo = async (overrideResolution?: '1080x1920' | '720x1280') => {
+    if (project.storyboard.length === 0) return;
+
+    const chosenResolution = overrideResolution || renderResolution;
+    let targetProjectId = project._id;
+
+    setIsExportModalOpen(true);
+    setIsRenderingVideo(true);
+    setRenderProgress(5);
+    setRenderStatusText('INITIALIZING BULLMQ RENDER PIPELINE...');
+    setRenderError(null);
+
+    try {
+      // Auto-save project first if not yet created
+      if (!targetProjectId) {
+        const createRes = await apiRequest('/projects', {
+          method: 'POST',
+          body: JSON.stringify({
+            sourcePrompt: project.sourcePrompt || project.title,
+            config: project.config,
+            title: project.title,
+            storyboard: project.storyboard,
+          }),
+        });
+        if (createRes.data) {
+          setProject(createRes.data);
+          targetProjectId = createRes.data._id;
+          router.push(`/workspace?projectId=${createRes.data._id}`);
+        } else {
+          throw new Error('Could not initialize project record.');
+        }
+      }
+
+      setRenderProgress(10);
+      setRenderStatusText('DISPATCHING JOB TO BULLMQ REDIS QUEUE...');
+
+      const renderRes = await apiRequest(`/projects/${targetProjectId}/render`, {
+        method: 'POST',
+        body: JSON.stringify({
+          resolution: chosenResolution,
+          fps: 30,
+        }),
+      });
+
+      if (!renderRes.success && renderRes.error) {
+        setRenderError(renderRes.error);
+        setIsRenderingVideo(false);
+        return;
+      }
+
+      // Poll status every 1.5 seconds
+      if (renderPollIntervalRef.current) {
+        clearInterval(renderPollIntervalRef.current);
+      }
+
+      renderPollIntervalRef.current = setInterval(async () => {
+        try {
+          const statusRes = await apiRequest(`/projects/${targetProjectId}/render-status`);
+          if (statusRes.data) {
+            const { project: projData, job } = statusRes.data;
+            const progress = job?.progress || projData?.renderProgress || 0;
+            setRenderProgress(progress);
+
+            if (progress < 25) {
+              setRenderStatusText('BUNDLING REMOTION 30FPS COMPOSITION...');
+            } else if (progress < 85) {
+              setRenderStatusText(`RENDERING 9:16 FRAMES VIA HEADLESS CHROMIUM (${progress}%)...`);
+            } else if (progress < 100) {
+              setRenderStatusText('FFMPEG H.264 MP4 HARDWARE ENCODING...');
+            }
+
+            if (projData?.status === 'READY' && projData?.artifacts?.finalRenderUrl) {
+              setRenderProgress(100);
+              setRenderStatusText('RENDER COMPLETED SUCCESSFULLY! 🎉');
+              setIsRenderingVideo(false);
+              setProject((p) => ({
+                ...p,
+                status: 'READY',
+                artifacts: {
+                  ...p.artifacts,
+                  finalRenderUrl: projData.artifacts.finalRenderUrl,
+                },
+              }));
+              if (renderPollIntervalRef.current) {
+                clearInterval(renderPollIntervalRef.current);
+                renderPollIntervalRef.current = null;
+              }
+            } else if (projData?.status === 'FAILED' || job?.state === 'failed') {
+              setRenderError(projData?.errorCode || job?.failedReason || 'Video rendering failed');
+              setIsRenderingVideo(false);
+              if (renderPollIntervalRef.current) {
+                clearInterval(renderPollIntervalRef.current);
+                renderPollIntervalRef.current = null;
+              }
+            }
+          }
+        } catch (err: any) {
+          console.warn('Polling error:', err.message);
+        }
+      }, 1500);
+    } catch (err: any) {
+      setRenderError(err.message || 'Failed to dispatch render job');
+      setIsRenderingVideo(false);
+    }
+  };
+
+  const handleDownloadVideo = () => {
+    if (!project.artifacts?.finalRenderUrl) return;
+    const downloadUrl = `http://localhost:5050${project.artifacts.finalRenderUrl}`;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `${project.title.replace(/[^a-zA-Z0-9]/g, '_')}_1080x1920.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  // Module 10: Social Export & Scheduling Handler
+  const handleSchedulePost = async (publishImmediately: boolean = false) => {
+    if (!project._id) {
+      alert('Please save or generate a project first.');
+      return;
+    }
+    try {
+      setIsScheduling(true);
+      const res = await apiRequest('/schedule', {
+        method: 'POST',
+        body: JSON.stringify({
+          projectId: project._id,
+          scheduledAt: scheduleDateTime,
+          platforms: ['instagram'],
+          caption: scheduleCaption || project.title,
+          hashtags: ['#CricketReels', '#CricMotionAI', '#CricketReel'],
+        }),
+      });
+
+      if (res.data?._id && publishImmediately) {
+        await apiRequest(`/schedule/${res.data._id}/publish-now`, { method: 'POST' });
+        setScheduleSuccessMessage('Reel published immediately to Instagram Reels!');
+      } else {
+        setScheduleSuccessMessage('Reel scheduled successfully in your calendar!');
+      }
+
+      setTimeout(() => {
+        setScheduleSuccessMessage(null);
+        setIsScheduleModalOpen(false);
+      }, 2500);
+    } catch (err: any) {
+      alert(`Scheduling error: ${err.message}`);
+    } finally {
+      setIsScheduling(false);
     }
   };
 
@@ -524,7 +672,7 @@ function WorkspaceContent() {
   return (
     <div className="min-h-screen bg-[#070707] text-white antialiased flex flex-col justify-between pb-28">
       {/* 1. STUDIO HEADER */}
-      <header className="w-full bg-[#0A0A0A] border-b-4 border-black px-4 sm:px-8 py-3.5 sticky top-0 z-40 shadow-brutal flex items-center justify-between">
+      <header className="w-full bg-[#0A0A0A] border-b-4 border-black px-4 sm:px-8 py-3.5 sticky top-0 z-50 shadow-brutal flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
@@ -556,6 +704,7 @@ function WorkspaceContent() {
           </div>
 
           <button
+            data-testid="header-play-preview"
             onClick={() => {
               setIsPlaying(!isPlaying);
             }}
@@ -564,11 +713,69 @@ function WorkspaceContent() {
             {isPlaying ? <Pause className="w-3.5 h-3.5 fill-black" /> : <Play className="w-3.5 h-3.5 fill-black" />}
             <span>{isPlaying ? 'PAUSE PREVIEW' : 'PLAY PREVIEW'}</span>
           </button>
+
+          {/* Module 8: EXPORT / DOWNLOAD MP4 Header Button */}
+          <button
+            data-testid="header-export-mp4"
+            onClick={() => {
+              if (project.storyboard.length > 0) {
+                if (project.artifacts?.finalRenderUrl) {
+                  handleDownloadVideo();
+                } else {
+                  handleExportVideo();
+                }
+              }
+            }}
+            disabled={project.storyboard.length === 0}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 border-2 border-black rounded-full font-display font-black text-xs shadow-brutal-sm hover:shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer ${
+              project.storyboard.length === 0
+                ? 'bg-neutral-800 text-gray-500 cursor-not-allowed opacity-60'
+                : isRenderingVideo
+                ? 'bg-amber-400 text-black animate-pulse'
+                : project.artifacts?.finalRenderUrl
+                ? 'bg-emerald-400 text-black hover:bg-emerald-300'
+                : 'bg-brand-yellow text-black hover:bg-yellow-300'
+            }`}
+          >
+            {isRenderingVideo ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>EXPORTING ({renderProgress}%)</span>
+              </>
+            ) : project.artifacts?.finalRenderUrl ? (
+              <>
+                <Download className="w-3.5 h-3.5 fill-black" />
+                <span>DOWNLOAD MP4</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5" />
+                <span>EXPORT MP4</span>
+              </>
+            )}
+          </button>
+
+          {/* Module 10: SCHEDULE / DEPLOY REEL Header Button */}
+          {project._id && (
+            <button
+              onClick={() => {
+                if (project.storyboard.length === 0) {
+                  alert('Please create or generate scenes first.');
+                  return;
+                }
+                setIsScheduleModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-yellow hover:bg-yellow-300 text-black border-2 border-black rounded-full font-display font-black text-xs shadow-brutal-sm hover:shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>SCHEDULE REEL</span>
+            </button>
+          )}
         </div>
       </header>
 
       {/* 2. MAIN 60/40 SPLIT LAYOUT */}
-      <main className="max-w-[1600px] w-full mx-auto px-4 sm:px-8 py-6 flex-1">
+      <main className="relative z-0 max-w-[1600px] w-full mx-auto px-4 sm:px-8 py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* ======================================================== */}
@@ -744,6 +951,111 @@ function WorkspaceContent() {
                       : 'GENERATE AI PRESENTER (D-ID)'}
                   </span>
                 </button>
+              </div>
+
+              {/* Module 8: Headless Video Render & MP4 Export Control Strip */}
+              <div className="pt-3 border-t-2 border-black/50 flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        project.artifacts?.finalRenderUrl
+                          ? 'bg-emerald-400 animate-pulse'
+                          : isRenderingVideo
+                          ? 'bg-amber-400 animate-ping'
+                          : 'bg-brand-yellow'
+                      }`}
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-display font-black tracking-wider text-white uppercase flex items-center gap-1.5">
+                        <Video className="w-3.5 h-3.5 text-brand-yellow" />
+                        {project.artifacts?.finalRenderUrl
+                          ? '1080×1920 MP4 RENDER READY'
+                          : isRenderingVideo
+                          ? 'RENDERING IN BULLMQ WORKER...'
+                          : 'HEADLESS MP4 VIDEO COMPILER'}
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-bold">
+                        {project.artifacts?.finalRenderUrl
+                          ? 'H.264 MP4 export compiled & verified on disk'
+                          : 'Chromium headless + FFmpeg 30 FPS pipeline'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Resolution Toggle & Buttons */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <select
+                      value={renderResolution}
+                      onChange={(e) => setRenderResolution(e.target.value as any)}
+                      disabled={isRenderingVideo}
+                      className="bg-black text-white border-2 border-black rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:border-brand-yellow disabled:opacity-50"
+                    >
+                      <option value="1080x1920">1080×1920 (FHD)</option>
+                      <option value="720x1280">720×1280 (Fast)</option>
+                    </select>
+
+                    {project.artifacts?.finalRenderUrl ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleDownloadVideo}
+                          className="px-3 py-1.5 bg-emerald-400 hover:bg-emerald-300 text-black border-2 border-black rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-brutal-sm hover:shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 fill-black" />
+                          <span>DOWNLOAD MP4</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExportVideo()}
+                          disabled={isRenderingVideo}
+                          className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white border-2 border-black rounded-xl font-display font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer"
+                          title="Re-render with changes"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleExportVideo()}
+                        disabled={isRenderingVideo || project.storyboard.length === 0}
+                        className="w-full sm:w-auto px-4 py-2 bg-brand-yellow hover:bg-yellow-300 text-black border-2 border-black rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-brutal-sm hover:shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isRenderingVideo ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>RENDERING ({renderProgress}%)...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5" />
+                            <span>RENDER MP4</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Live Progress Bar when rendering */}
+                {isRenderingVideo && (
+                  <div className="mt-1 bg-black border-2 border-black rounded-xl p-2.5 flex flex-col gap-1.5 shadow-inner">
+                    <div className="flex items-center justify-between text-[11px] font-display font-black">
+                      <span className="text-brand-yellow flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        {renderStatusText}
+                      </span>
+                      <span className="text-white">{renderProgress}%</span>
+                    </div>
+                    <div className="w-full h-3 bg-neutral-900 border border-neutral-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-brand-yellow transition-all duration-300 rounded-full"
+                        style={{ width: `${Math.max(5, renderProgress)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Toast / Notification pill */}
@@ -968,7 +1280,7 @@ function WorkspaceContent() {
           {/* ======================================================== */}
           {/* RIGHT PANEL (40%): LIVE 9:16 VERTICAL SMARTPHONE PREVIEW */}
           {/* ======================================================== */}
-          <div className="lg:col-span-5 xl:col-span-5 flex flex-col items-center">
+          <div className="lg:col-span-5 xl:col-span-5 flex flex-col items-center lg:sticky lg:top-24">
             
             {/* View Mode Controls */}
             <div className="w-full max-w-[360px] flex items-center justify-between mb-3 px-1">
@@ -1019,7 +1331,7 @@ function WorkspaceContent() {
                 {previewMode === 'remotion' ? (
                   <div className="relative w-full h-full rounded-[30px] overflow-hidden bg-black flex flex-col justify-between">
                     {/* 1. Dynamic Island / Speaker Notch */}
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-40 border border-neutral-800 flex items-center justify-between px-3 pointer-events-none">
+                    <div data-testid="dynamic-island-notch" className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-20 border border-neutral-800 flex items-center justify-between px-3 pointer-events-none">
                       <div className="flex items-center gap-1">
                         {isPlaying && (
                           <div className="flex items-end gap-0.5 h-2.5">
@@ -1051,7 +1363,7 @@ function WorkspaceContent() {
                       }}
                     />
 
-                    {/* Optional Social Interface Overlay (TikTok / Reels icons) */}
+                    {/* Instagram Reels Social Interface Overlay */}
                     {showSocialOverlay && (
                       <div className="absolute right-3 bottom-24 z-30 flex flex-col items-center gap-3.5 text-white pointer-events-none opacity-85">
                         <div className="flex flex-col items-center">
@@ -1072,7 +1384,7 @@ function WorkspaceContent() {
                 ) : (
                   <>
                     {/* 1. Dynamic Island / Speaker Notch */}
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-40 border border-neutral-800 flex items-center justify-between px-3">
+                    <div data-testid="dynamic-island-notch" className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-20 border border-neutral-800 flex items-center justify-between px-3 pointer-events-none">
                   <div className="flex items-center gap-1">
                     {isPlaying && (
                       <div className="flex items-end gap-0.5 h-2.5">
@@ -1227,7 +1539,7 @@ function WorkspaceContent() {
                   })()}
                 </div>
 
-                {/* 8. Optional Social Interface Overlay (TikTok / Reels icons) */}
+                {/* Instagram Reels Social Interface Overlay */}
                 {showSocialOverlay && (
                   <div className="absolute right-3 bottom-20 z-30 flex flex-col items-center gap-3.5 text-white pointer-events-none opacity-85">
                     <div className="flex flex-col items-center">
@@ -1275,6 +1587,379 @@ function WorkspaceContent() {
 
         </div>
       </main>
+
+      {/* Module 8: Export MP4 Modal Dialog */}
+      {isExportModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-[#121212] border-4 border-black rounded-3xl p-6 shadow-[10px_10px_0px_#000000] flex flex-col gap-5 text-white">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b-2 border-black pb-3">
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-brand-yellow" />
+                <h3 className="font-display font-black text-sm uppercase tracking-wider">
+                  CRICMOTION MP4 VIDEO COMPILER
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsExportModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Reel Details */}
+            <div className="bg-black border-2 border-black rounded-2xl p-4 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-display font-bold text-gray-400 uppercase">Reel Title</span>
+                <span className="text-xs font-display font-black text-brand-yellow truncate max-w-[240px]">
+                  {project.title}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-display font-bold text-gray-400 uppercase">Target Specs</span>
+                <span className="text-xs font-mono font-bold text-white">
+                  {renderResolution} @ 30 FPS (H.264 MP4)
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-display font-bold text-gray-400 uppercase">Scenes / Duration</span>
+                <span className="text-xs font-mono font-bold text-white">
+                  {project.storyboard.length} Scenes ({project.config.targetDurationSeconds}s)
+                </span>
+              </div>
+            </div>
+
+            {/* Progress Section or Error */}
+            {renderError ? (
+              <div className="p-4 bg-red-950 border-2 border-red-500 rounded-xl text-red-200 text-xs font-bold flex flex-col gap-2">
+                <span className="font-display uppercase text-red-400">⚠️ Render Error</span>
+                <span>{renderError}</span>
+                <button
+                  type="button"
+                  onClick={() => handleExportVideo()}
+                  className="mt-2 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-display font-black text-xs uppercase w-max"
+                >
+                  Retry Render
+                </button>
+              </div>
+            ) : isRenderingVideo ? (
+              <div className="flex flex-col gap-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-display font-black text-brand-yellow flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {renderStatusText}
+                  </span>
+                  <span className="text-base font-display font-black text-white">{renderProgress}%</span>
+                </div>
+
+                <div className="w-full h-4 bg-black border-2 border-black rounded-full overflow-hidden p-0.5">
+                  <div
+                    className="h-full bg-brand-yellow rounded-full transition-all duration-300"
+                    style={{ width: `${Math.max(4, renderProgress)}%` }}
+                  />
+                </div>
+
+                <div className="text-[11px] text-gray-400 font-bold text-center">
+                  Headless Chromium is rendering 30 FPS frames with word telemetry overlays...
+                </div>
+              </div>
+            ) : project.artifacts?.finalRenderUrl ? (
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-400/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400">
+                  <Check className="w-8 h-8 stroke-[3]" />
+                </div>
+                <div className="text-center">
+                  <h4 className="font-display font-black text-base text-white uppercase">
+                    1080×1920 MP4 Video Compiled!
+                  </h4>
+                  <p className="text-xs text-gray-400 font-bold mt-1">
+                    Ready to publish directly to Instagram Reels.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+                  <button
+                    type="button"
+                    onClick={handleDownloadVideo}
+                    className="flex-1 py-3 bg-emerald-400 hover:bg-emerald-300 text-black border-3 border-black rounded-2xl font-display font-black text-sm uppercase tracking-wider shadow-brutal flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+                  >
+                    <Download className="w-4 h-4 fill-black" />
+                    <span>DOWNLOAD MP4</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportModalOpen(false);
+                      setIsScheduleModalOpen(true);
+                    }}
+                    className="flex-1 py-3 bg-brand-yellow hover:bg-yellow-300 text-black border-3 border-black rounded-2xl font-display font-black text-sm uppercase tracking-wider shadow-brutal flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>DEPLOY & SCHEDULE</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  Export your cricket reel to high-definition vertical MP4 (1080×1920 at 30 FPS).
+                  All audio tracks, kinetic caption typography, speed radars, and D-ID avatars will be rendered headlessly into a single downloadable video file.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleExportVideo()}
+                  className="w-full py-3 bg-brand-yellow hover:bg-yellow-300 text-black border-3 border-black rounded-2xl font-display font-black text-sm uppercase tracking-wider shadow-brutal flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>START EXPORT ({renderResolution})</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Module 10: Direct-to-Social Deployment & Scheduling Modal (Screen 4) */}
+      {isScheduleModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-lg w-full bg-[#FFFC00] text-black border-4 border-black rounded-3xl p-6 sm:p-8 shadow-brutal relative animate-in fade-in zoom-in-95 duration-150">
+            {/* Close button */}
+            <button
+              onClick={() => setIsScheduleModalOpen(false)}
+              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black text-white hover:bg-neutral-800 flex items-center justify-center border-2 border-black transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5 stroke-[3]" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-black text-brand-yellow rounded-xl border-2 border-black flex items-center justify-center shadow-brutal-sm">
+                <Share2 className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="font-display font-black text-2xl uppercase tracking-tight">
+                  Deploy & Schedule Reel
+                </h3>
+                <p className="text-xs font-bold text-black/70">
+                  Target Social Channel • Direct Instagram Graph API (9:16 Reels)
+                </p>
+              </div>
+            </div>
+
+            {scheduleSuccessMessage ? (
+              <div className="my-6 p-6 bg-emerald-400 border-3 border-black rounded-2xl text-center space-y-3 shadow-brutal">
+                <div className="w-12 h-12 bg-black text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+                  <Check className="w-6 h-6 stroke-[3]" />
+                </div>
+                <h4 className="font-display font-black text-lg text-black uppercase">
+                  {scheduleSuccessMessage}
+                </h4>
+                <div className="flex justify-center gap-3 pt-2">
+                  <Link
+                    href="/schedule"
+                    className="px-4 py-2 bg-black text-white rounded-xl font-display font-black text-xs uppercase"
+                  >
+                    View in Calendar
+                  </Link>
+                  <button
+                    onClick={() => setIsScheduleModalOpen(false)}
+                    className="px-4 py-2 bg-white text-black border-2 border-black rounded-xl font-display font-black text-xs uppercase cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                {/* 1. Target Social Channel: Instagram Reels Only */}
+                <div>
+                  <label className="block font-display font-black text-xs uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>1. Target Social Channel</span>
+                    <span className="text-[10px] bg-black text-brand-yellow font-display font-black px-2 py-0.5 rounded border border-black">
+                      INSTAGRAM REELS ONLY
+                    </span>
+                  </label>
+                  <div className="p-3.5 bg-black text-white rounded-2xl border-3 border-black shadow-brutal flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 flex items-center justify-center text-white border-2 border-black font-display font-black text-lg shadow-sm">
+                        📸
+                      </div>
+                      <div>
+                        <div className="font-display font-black text-sm uppercase">Instagram Reels</div>
+                        <div className="text-[11px] text-gray-400 font-medium">9:16 Vertical Video Graph API</div>
+                      </div>
+                    </div>
+                    {user?.oauth?.instagramAccountId ? (
+                      <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full font-display font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                        <span>{user.oauth.instagramUsername || 'CONNECTED'}</span>
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-red-500/20 text-red-400 border border-red-500/40 rounded-full font-display font-black text-[10px] uppercase tracking-wider">
+                        🔴 NOT CONNECTED
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Account Connection Guard */}
+                {!user?.oauth?.instagramAccountId && (
+                  <div className="p-4 bg-amber-400/20 border-3 border-black rounded-2xl text-black space-y-2.5 shadow-brutal-sm">
+                    <div className="flex items-center gap-1.5 font-display font-black text-xs uppercase">
+                      <span className="text-sm">⚠️</span>
+                      <span>Instagram Account Not Linked</span>
+                    </div>
+                    <p className="text-xs font-semibold text-black/80 leading-relaxed">
+                      You cannot schedule or publish reels without a linked Instagram Professional account.
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Link
+                        href="/settings"
+                        className="px-3.5 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl font-display font-black text-xs uppercase cursor-pointer"
+                      >
+                        Open Settings
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await apiRequest('/auth/instagram/connect', {
+                              method: 'POST',
+                              body: JSON.stringify({
+                                instagramAccountId: '17841405309211824',
+                                instagramUsername: '@cricmotion_reels',
+                                instagramAccessToken: 'EAABwzLixnjYBO4...sandbox_meta_graph_token_verified',
+                              }),
+                            });
+                            if (res.user) {
+                              setUser(res.user);
+                              authStorage.setUser(res.user);
+                            }
+                          } catch (e: any) {
+                            alert(e.message);
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-100 text-black border-2 border-black rounded-xl font-display font-black text-xs uppercase cursor-pointer"
+                      >
+                        ⚡ 1-Click Link Test Account
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Schedule Date & Time Picker */}
+                <div>
+                  <label className="block font-display font-black text-xs uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>2. Publishing Schedule</span>
+                    <span className="text-[10px] text-black/60 font-bold">Auto-Adjusted to Prime Slots</span>
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(Date.now() + 3600000);
+                        setScheduleDateTime(d.toISOString().slice(0, 16));
+                      }}
+                      className="flex-1 py-1.5 bg-white text-black hover:bg-gray-100 border-2 border-black rounded-xl font-display font-bold text-xs cursor-pointer"
+                    >
+                      In 1 Hour
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setHours(20, 0, 0, 0);
+                        if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1);
+                        setScheduleDateTime(d.toISOString().slice(0, 16));
+                      }}
+                      className="flex-1 py-1.5 bg-white text-black hover:bg-gray-100 border-2 border-black rounded-xl font-display font-bold text-xs cursor-pointer"
+                    >
+                      Tonight 8:00 PM
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        d.setHours(10, 0, 0, 0);
+                        setScheduleDateTime(d.toISOString().slice(0, 16));
+                      }}
+                      className="flex-1 py-1.5 bg-white text-black hover:bg-gray-100 border-2 border-black rounded-xl font-display font-bold text-xs cursor-pointer"
+                    >
+                      Tomorrow 10 AM
+                    </button>
+                  </div>
+                  <input
+                    type="datetime-local"
+                    value={scheduleDateTime}
+                    onChange={(e) => setScheduleDateTime(e.target.value)}
+                    className="w-full px-4 py-2 bg-white text-black border-3 border-black rounded-2xl font-mono font-bold text-sm shadow-brutal-sm focus:outline-none"
+                  />
+                </div>
+
+                {/* 3. Caption & Auto-Hashtags */}
+                <div>
+                  <label className="block font-display font-black text-xs uppercase tracking-wider mb-2">
+                    3. Caption & Social Copy
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={scheduleCaption}
+                    onChange={(e) => setScheduleCaption(e.target.value)}
+                    placeholder={project.title ? `${project.title} 🏏⚡` : 'Enter high-engagement social caption...'}
+                    className="w-full px-4 py-2 bg-white text-black border-3 border-black rounded-2xl font-sans text-xs font-semibold shadow-brutal-sm focus:outline-none resize-none"
+                  />
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {['#CricketReels', '#CricMotionAI', '#IPL2026', '#CricketClutch', '#InstaCricket'].map((tag) => (
+                      <span
+                        key={tag}
+                        onClick={() => setScheduleCaption((prev) => `${prev} ${tag}`.trim())}
+                        className="px-2 py-0.5 bg-black text-brand-yellow font-display font-bold text-[10px] rounded-lg border border-black cursor-pointer hover:bg-neutral-800 transition-all select-none"
+                      >
+                        {tag} +
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Action Buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  {!user?.oauth?.instagramAccountId ? (
+                    <Link
+                      href="/settings"
+                      className="flex-1 py-3 bg-black hover:bg-neutral-800 text-brand-yellow border-3 border-black rounded-2xl font-display font-black text-xs uppercase tracking-wider shadow-brutal flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    >
+                      <span>Connect Instagram in Settings to Schedule</span>
+                    </Link>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleSchedulePost(false)}
+                        disabled={isScheduling}
+                        className="flex-1 py-3 bg-black hover:bg-neutral-800 text-white border-3 border-black rounded-2xl font-display font-black text-sm uppercase tracking-wider shadow-brutal flex items-center justify-center gap-2 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-60"
+                      >
+                        {isScheduling ? <Loader2 className="w-4 h-4 animate-spin text-brand-yellow" /> : <Calendar className="w-4 h-4 text-brand-yellow" />}
+                        <span>Confirm Schedule</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSchedulePost(true)}
+                        disabled={isScheduling}
+                        className="py-3 px-4 bg-white hover:bg-gray-100 text-black border-3 border-black rounded-2xl font-display font-black text-xs uppercase tracking-wider shadow-brutal flex items-center justify-center gap-1.5 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-60"
+                      >
+                        <Send className="w-4 h-4 fill-black" />
+                        <span>Publish Now</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 3. GLOBAL FLOATING NAVIGATION DOCK */}
       <FloatingDock />

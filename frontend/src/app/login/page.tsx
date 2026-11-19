@@ -85,7 +85,7 @@ export default function LoginPage() {
             <div className="-rotate-2 self-start mb-4 bg-white text-black px-4 py-1.5 border-2 border-black rounded-xl shadow-brutal-sm">
               <p className="font-sans text-xs font-bold flex items-center gap-1.5">
                 <Zap className="w-4 h-4 text-brand-yellow fill-black" />
-                Turn scores into viral TikTok/Shorts in 12s
+                Turn scores into viral Instagram Reels in 12s
               </p>
             </div>
 

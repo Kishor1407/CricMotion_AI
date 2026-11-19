@@ -8,6 +8,8 @@ export interface IUser extends Document {
     googleId?: string;
     instagramAccessToken?: string;
     instagramAccountId?: string;
+    instagramUsername?: string;
+    instagramConnectedAt?: Date;
   };
   profile: {
     firstName?: string;
@@ -44,6 +46,8 @@ const UserSchema = new Schema<IUser>(
       googleId: { type: String, sparse: true },
       instagramAccessToken: { type: String, select: false },
       instagramAccountId: { type: String },
+      instagramUsername: { type: String, default: '' },
+      instagramConnectedAt: { type: Date },
     },
     profile: {
       firstName: { type: String, default: 'Cricket' },

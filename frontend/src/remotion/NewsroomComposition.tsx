@@ -15,6 +15,63 @@ export const NewsroomComposition: React.FC<NewsroomCompositionProps> = ({
   scenes,
   avatarVideoUrl,
 }) => {
+  if (scenes.length === 0) {
+    return (
+      <AbsoluteFill
+        style={{
+          backgroundColor: '#0A0A0A',
+          fontFamily: 'Montserrat, sans-serif',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 60,
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: 140,
+            height: 140,
+            borderRadius: 36,
+            backgroundColor: '#FFFC00',
+            border: '6px solid #000000',
+            boxShadow: '8px 8px 0px #000000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 32,
+          }}
+        >
+          <span style={{ fontSize: 64 }}>⚡</span>
+        </div>
+        <h2
+          style={{
+            color: '#FFFFFF',
+            fontSize: 40,
+            fontWeight: 900,
+            textTransform: 'uppercase',
+            letterSpacing: 2,
+            marginBottom: 16,
+          }}
+        >
+          Ready to Create
+        </h2>
+        <p
+          style={{
+            color: '#9CA3AF',
+            fontSize: 22,
+            fontWeight: 700,
+            lineHeight: 1.4,
+            maxWidth: 600,
+          }}
+        >
+          Type a cricket prompt below to generate your 9:16 vertical reel!
+        </p>
+      </AbsoluteFill>
+    );
+  }
+
   return (
     <AbsoluteFill
       style={{

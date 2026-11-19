@@ -8,6 +8,8 @@ import {
   deleteProject,
   synthesizeAudio,
   synthesizeAvatar,
+  renderProject,
+  getRenderStatus,
 } from '../controllers/projectController';
 import { authenticateJWT } from '../middleware/authMiddleware';
 
@@ -22,6 +24,8 @@ router.patch('/:projectId', updateProject);
 router.post('/:projectId/chat', addProjectChat);
 router.post('/:projectId/synthesize-audio', synthesizeAudio);
 router.post('/:projectId/synthesize-avatar', synthesizeAvatar);
+router.post('/:projectId/render', renderProject);
+router.get('/:projectId/render-status', getRenderStatus);
 router.delete('/:projectId', deleteProject);
 
 export default router;
