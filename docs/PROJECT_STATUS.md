@@ -22,6 +22,7 @@
 | **Phase 8** | **Async Job Worker (BullMQ + Redis) & Headless Video Rendering** | 🟢 COMPLETED | Nov 19, 2026 | Nov 19, 2026 |
 | **Phase 9** | **Media Storage & Multi-Tenant Asset Pipelines (Local + R2)** | 🟢 COMPLETED | Nov 19, 2026 | Nov 19, 2026 |
 | **Phase 10** | **Social Publishing (Instagram Reels Graph API & Calendar Dispatch)** | 🟢 COMPLETED | Nov 19, 2026 | Nov 19, 2026 |
+| **Phase 11** | **Vercel Multi-Service Cloud Deployment (Frontend + Express API)** | 🟢 COMPLETED | Nov 20, 2026 | Nov 20, 2026 |
 
 ---
 
@@ -143,6 +144,7 @@
 * **Remotion Headless Chromium:** Bundled and tested rendering 1080x1920 MP4 video outputs.
 * **Meta Instagram Graph API:** Dedicated Instagram Reels publishing flow with honest account validation and connection management.
 * **Stitch AI MCP:** Connected to project `projects/4134009653632951138` (*CricMotion AI Studio*) containing 7 ready screens.
+* **Vercel Cloud Platform:** Production deployment active at `https://cricmotion-ai.vercel.app` with multi-service Express backend and Next.js frontend, private service bindings, and dynamic routing.
 * **Asset Storage:** Express static local storage (`/uploads`) with plug-and-play Cloudflare R2 compatibility.
 
 ---
@@ -167,3 +169,4 @@
 | `d561032` | 2026-11-19 | feat: implement Modules 8-10 (video rendering, storage, Instagram Reels publishing & settings) | Kishor Hegge / Antigravity AI |
 | `4de7182` | 2026-11-20 | feat(wallet): implement live dynamic credit deduction (-5 per reel) & full journey E2E verification | Kishor Hegge / Antigravity AI |
 | `17fdc55` | 2026-11-20 | feat: add reel deletion modal, cascade cleanup, streamlined dock & minimal settings UI | Kishor Hegge / Antigravity AI |
+| `45174cd` | 2026-11-20 | feat(deploy): configure Vercel multi-service project, bindings, env vars & live production deployment | Kishor Hegge / Antigravity AI |
