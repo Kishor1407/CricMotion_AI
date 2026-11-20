@@ -3,6 +3,19 @@
 > **Frictionless, Multi-Tenant AI Video Generator for Cricket Reels & Shorts**  
 > Transform single text prompts into 9:16 vertical broadcast motion-graphic videos featuring an AI lip-syncing anchor and dynamic physics-based graphics.
 
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live_Production-black?style=for-the-badge&logo=vercel)](https://cricmotion-ai.vercel.app)
+[![Health Status](https://img.shields.io/badge/API_Health-200_OK-brightgreen?style=for-the-badge)](https://cricmotion-ai.vercel.app/health)
+[![License: UNLICENSED](https://img.shields.io/badge/License-UNLICENSED-yellow?style=for-the-badge)](#)
+
+---
+
+## 🌐 Live Production Deployment
+
+* **Production Web App:** [https://cricmotion-ai.vercel.app](https://cricmotion-ai.vercel.app)
+* **Backend Health Check:** [https://cricmotion-ai.vercel.app/health](https://cricmotion-ai.vercel.app/health)
+* **API Root:** [https://cricmotion-ai.vercel.app/v1](https://cricmotion-ai.vercel.app/v1)
+* **Deployment Architecture:** Vercel Multi-Services (Next.js 15 App Router Frontend + Express.js TypeScript Backend with Private Service Bindings)
+
 ---
 
 ## ⚡ Overview
@@ -56,7 +69,15 @@ The interface is built with an ultra-engaging **Snapchat-inspired Neobrutalism**
 
 ## 🚦 Current Status
 
-- **Completed Modules:** Modules 1 through 5 (Authentication, Dashboard, Studio Shell, Gemini AI Planning, Voice Synthesis & Alignment).
-- **Next Up:** Module 6 (AI Presenter Lip-Sync Engine with D-ID Studio API).
+- **Completed Phases:**
+  - ✅ **Phase 1-3:** Foundation, Monorepo Scaffolding, MongoDB Schemas & Auth with JWT
+  - ✅ **Phase 4:** AI Storyboard Planning & Conversational Revisions (Gemini 3.5 Flash)
+  - ✅ **Phase 5:** Commentary Audio & Millisecond Alignment Engine (ElevenLabs)
+  - ✅ **Phase 6:** AI Presenter Lip-Sync Engine (D-ID Studio API + Fallback)
+  - ✅ **Phase 7:** Neobrutalist Creation Studio UI (60/40 Split, Omnibar, Filmstrip)
+  - ✅ **Phase 8:** Async Job Worker & Remotion Headless MP4 Video Rendering (BullMQ + Redis)
+  - ✅ **Phase 9:** Multi-Tenant Storage Pipeline (Local Disk + Cloudflare R2)
+  - ✅ **Phase 10:** Social Publishing (Instagram Reels Graph API, Calendar & Scheduling)
+  - ✅ **Phase 11:** Production Multi-Service Cloud Deployment on Vercel (`cricmotion-ai.vercel.app`)
 
-For full details on development history and current status, refer to **[`docs/PROJECT_STATUS.md`](./docs/PROJECT_STATUS.md)**.
+For complete granular tracking and technical history, refer to **[`docs/PROJECT_STATUS.md`](./docs/PROJECT_STATUS.md)**.
