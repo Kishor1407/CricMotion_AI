@@ -1,4 +1,11 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050/v1';
+const getApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== 'undefined') return '/v1';
+  if (process.env.BACKEND_URL) return `${process.env.BACKEND_URL}/v1`;
+  return 'http://localhost:5050/v1';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface User {
   id: string;

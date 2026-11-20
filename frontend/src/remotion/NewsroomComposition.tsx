@@ -81,10 +81,13 @@ export const NewsroomComposition: React.FC<NewsroomCompositionProps> = ({
       }}
     >
       {scenes.map((scene) => {
+        const backendBase =
+          process.env.NEXT_PUBLIC_BACKEND_URL ||
+          (typeof window !== 'undefined' ? '' : 'http://localhost:5050');
         const fullAudioUrl = scene.audioUrl
           ? scene.audioUrl.startsWith('http')
             ? scene.audioUrl
-            : `http://localhost:5050${scene.audioUrl}`
+            : `${backendBase}${scene.audioUrl}`
           : undefined;
 
         return (
