@@ -31,7 +31,7 @@ async function runBrowserQA() {
     // ----------------------------------------------------
     console.log('\n[STEP 1] Navigating to http://localhost:5173/login ...');
     await page.goto('http://localhost:5173/login', { waitUntil: 'networkidle2', timeout: 15000 });
-    
+
     const pageText = await page.evaluate(() => document.body.innerText.toLowerCase());
     const hasBrandTitle = pageText.includes('cricmotion ai') || pageText.includes('make cricket');
     recordResult('Login Page Render & Neobrutalism Branding', hasBrandTitle);
@@ -65,7 +65,7 @@ async function runBrowserQA() {
       }
     });
 
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {});
+    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => { });
     await page.waitForFunction(() => !document.body.innerText.includes('Loading your workspace...'), { timeout: 10000 });
     await new Promise(r => setTimeout(r, 1000));
     recordResult('Authentication & Dashboard Redirection', page.url().includes('/dashboard'));
@@ -116,12 +116,12 @@ async function runBrowserQA() {
     // STEP 5: MODULE 4 - GEMINI AI STORYBOARD GENERATION
     // ----------------------------------------------------
     console.log('\n[STEP 5] Testing Module 4: Gemini AI Reel Generation ...');
-    
+
     // Type in omnibar to generate a real project via Gemini
     await page.waitForSelector('textarea', { timeout: 5000 });
     await page.$eval('textarea', el => el.value = '');
     await page.type('textarea', 'Rohit Sharma 264 vs Sri Lanka Eden Gardens masterclass');
-    
+
     await page.evaluate(() => {
       const form = document.querySelector('form');
       if (form) {

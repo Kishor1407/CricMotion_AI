@@ -50,6 +50,17 @@ export default function DashboardPage() {
       return;
     }
     setUser(currentUser);
+
+    // Refresh live wallet credits and profile
+    apiRequest('/auth/me')
+      .then((res) => {
+        if (res?.user) {
+          setUser(res.user);
+          authStorage.setUser(res.user);
+        }
+      })
+      .catch(() => {});
+
     fetchProjects();
   }, [router]);
 
@@ -60,6 +71,15 @@ export default function DashboardPage() {
       if (res.data) {
         setProjects(res.data);
       }
+      // Also sync user wallet
+      apiRequest('/auth/me')
+        .then((userRes) => {
+          if (userRes?.user) {
+            setUser(userRes.user);
+            authStorage.setUser(userRes.user);
+          }
+        })
+        .catch(() => {});
     } catch (err: any) {
       console.error('Failed to load projects:', err.message);
     } finally {
@@ -131,7 +151,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center gap-2 bg-brand-yellow text-black px-4 py-2 border-3 border-black rounded-full shadow-brutal font-display font-black text-sm">
               <Zap className="w-4 h-4 fill-black text-black" />
-              <span>{user?.wallet?.generationCredits ?? 50} CREDITS</span>
+              <span>{user?.wallet?.generationCredits !== undefined ? `${user.wallet.generationCredits} CREDITS` : '-- CREDITS'}</span>
             </div>
 
             <div className="hidden md:inline-flex items-center gap-2 bg-white text-black px-4 py-2 border-3 border-black rounded-full shadow-brutal font-display font-bold text-sm">

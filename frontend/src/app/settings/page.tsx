@@ -231,7 +231,7 @@ export default function SettingsPage() {
                 Wallet Balance
               </span>
               <span className="font-display font-black text-2xl text-black">
-                {user?.wallet?.generationCredits ?? 50} Credits
+                {user?.wallet?.generationCredits !== undefined ? `${user.wallet.generationCredits} Credits` : '0 Credits'}
               </span>
             </div>
             <div className="p-4 bg-gray-50 border-2 border-black rounded-2xl">

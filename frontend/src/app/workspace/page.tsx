@@ -649,6 +649,15 @@ function WorkspaceContent() {
         });
         if (res.data) {
           setProject(res.data);
+          // Refresh live wallet credits immediately
+          apiRequest('/auth/me')
+            .then((uRes) => {
+              if (uRes?.user) {
+                setUser(uRes.user);
+                authStorage.setUser(uRes.user);
+              }
+            })
+            .catch(() => {});
           router.push(`/workspace?projectId=${res.data._id}`);
         }
       }
@@ -700,7 +709,7 @@ function WorkspaceContent() {
         <div className="flex items-center gap-3">
           <div className="inline-flex items-center gap-1.5 bg-brand-yellow text-black px-3.5 py-1.5 border-2 border-black rounded-full shadow-brutal-sm font-display font-black text-xs">
             <Zap className="w-3.5 h-3.5 fill-black" />
-            <span>{user?.wallet?.generationCredits ?? 50} CREDITS</span>
+            <span>{user?.wallet?.generationCredits !== undefined ? `${user.wallet.generationCredits} CREDITS` : '-- CREDITS'}</span>
           </div>
 
           <button
@@ -1370,7 +1379,9 @@ function WorkspaceContent() {
                           <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
                             <Flame className="w-4 h-4 text-brand-yellow fill-brand-yellow" />
                           </div>
-                          <span className="text-[9px] font-bold mt-0.5">142K</span>
+                          <span className="text-[9px] font-bold mt-0.5">
+                            {project.stats?.views ? project.stats.views.toLocaleString() : 'Reel'}
+                          </span>
                         </div>
                         <div className="flex flex-col items-center">
                           <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
@@ -1546,7 +1557,9 @@ function WorkspaceContent() {
                       <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
                         <Flame className="w-4 h-4 text-brand-yellow fill-brand-yellow" />
                       </div>
-                      <span className="text-[9px] font-bold mt-0.5">142K</span>
+                      <span className="text-[9px] font-bold mt-0.5">
+                        {project.stats?.views ? project.stats.views.toLocaleString() : 'Reel'}
+                      </span>
                     </div>
                     <div className="flex flex-col items-center">
                       <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">

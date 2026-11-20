@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { Project } from '../models/Project';
+import { User } from '../models/User';
 import { generateStoryboard, reviseStoryboard } from '../services/geminiService';
 import {
   synthesizeProjectAudio,
@@ -371,8 +372,28 @@ export const createProject = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    // Dynamic Credit Check: Require at least 5 credits per reel generation
+    const user = await User.findById(ownerId);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    const currentCredits = user.wallet?.generationCredits ?? 50;
+    if (currentCredits < 5) {
+      res.status(403).json({
+        success: false,
+        message: 'Insufficient generation credits (5 credits required per reel). Please top up your wallet.',
+      });
+      return;
+    }
+
     // Call Gemini AI Storyboard Planner with Zod validation
     const plan = await generateStoryboard(sourcePrompt, config);
+
+    // Deduct 5 credits for reel generation
+    user.wallet.generationCredits = Math.max(0, currentCredits - 5);
+    await user.save();
 
     const project = await Project.create({
       ownerId,

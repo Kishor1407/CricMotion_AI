@@ -164,3 +164,4 @@
 | `985d32f` | 2026-11-19 | feat(avatar): implement Module 6 AI Presenter Lip-Sync Engine (AVATAR-01 to AVATAR-03), real natural speech commentary, and CricMotion favicon | Kishor Hegge / Antigravity AI |
 | `e6055fe` | 2026-11-19 | feat(remotion): implement Module 7 Remotion Dynamic Compositing Engine (REMOTION-01 to REMOTION-13), 5-layer z-index pipeline, and binary favicon suite | Kishor Hegge / Antigravity AI |
 | `d561032` | 2026-11-19 | feat: implement Modules 8-10 (video rendering, storage, Instagram Reels publishing & settings) | Kishor Hegge / Antigravity AI |
+| `ef7a984` | 2026-11-20 | feat(wallet): implement live dynamic credit deduction (-5 per reel) & full journey E2E verification | Kishor Hegge / Antigravity AI |
