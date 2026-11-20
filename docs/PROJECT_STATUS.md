@@ -166,4 +166,4 @@
 | `e6055fe` | 2026-11-19 | feat(remotion): implement Module 7 Remotion Dynamic Compositing Engine (REMOTION-01 to REMOTION-13), 5-layer z-index pipeline, and binary favicon suite | Kishor Hegge / Antigravity AI |
 | `d561032` | 2026-11-19 | feat: implement Modules 8-10 (video rendering, storage, Instagram Reels publishing & settings) | Kishor Hegge / Antigravity AI |
 | `4de7182` | 2026-11-20 | feat(wallet): implement live dynamic credit deduction (-5 per reel) & full journey E2E verification | Kishor Hegge / Antigravity AI |
-| `af56b4e` | 2026-11-20 | feat: add reel deletion modal, cascade cleanup, streamlined dock & minimal settings UI | Kishor Hegge / Antigravity AI |
+| `17fdc55` | 2026-11-20 | feat: add reel deletion modal, cascade cleanup, streamlined dock & minimal settings UI | Kishor Hegge / Antigravity AI |
