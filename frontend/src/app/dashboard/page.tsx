@@ -11,6 +11,10 @@ import {
   LogOut,
   RefreshCw,
   Sparkles,
+  Trash2,
+  CheckCircle2,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
 import { apiRequest, authStorage, User } from '@/lib/api';
 import { FloatingDock } from '@/components/FloatingDock';
@@ -42,6 +46,41 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; title: string } | null>(null);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && projectToDelete && !deletingId) {
+        setProjectToDelete(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [projectToDelete, deletingId]);
+
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
+    const { id, title } = projectToDelete;
+    try {
+      setDeletingId(id);
+      const res = await apiRequest(`/projects/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.success) {
+        setProjects((prev) => prev.filter((p) => p._id !== id));
+        setFeedbackMessage(`Reel "${title}" was deleted successfully.`);
+        setTimeout(() => setFeedbackMessage(null), 3500);
+        setProjectToDelete(null);
+      }
+    } catch (err: any) {
+      alert(`Failed to delete reel: ${err.message}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   useEffect(() => {
     const currentUser = authStorage.getUser();
@@ -169,6 +208,22 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Action feedback banner */}
+        {feedbackMessage && (
+          <div className="w-full bg-emerald-400 text-black border-3 border-black rounded-2xl p-4 shadow-brutal flex items-center justify-between font-display font-black text-sm animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 fill-black text-emerald-400" />
+              <span>{feedbackMessage}</span>
+            </div>
+            <button
+              onClick={() => setFeedbackMessage(null)}
+              className="text-xs uppercase underline font-bold cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* 3. Category Filter Carousel / Tabs */}
         <div className="flex items-center gap-2.5 overflow-x-auto py-2 no-scrollbar">
           <button
@@ -277,11 +332,14 @@ export default function DashboardPage() {
                 <article
                   key={project._id}
                   className="group relative aspect-[9/16] rounded-2xl border-4 border-black bg-neutral-900 shadow-brutal hover:shadow-brutal-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer select-none"
-                  onClick={() => router.push(`/workspace?projectId=${project._id}`)}
+                  onClick={(e) => {
+                    if (e.defaultPrevented) return;
+                    router.push(`/workspace?projectId=${project._id}`);
+                  }}
                 >
                   {/* Thumbnail Image */}
                   <div
-                    className="absolute inset-0 w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                    className="absolute inset-0 w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105 pointer-events-none"
                     style={{
                       backgroundImage: `url('${
                         project.artifacts?.thumbnailUrl ||
@@ -291,11 +349,11 @@ export default function DashboardPage() {
                   />
 
                   {/* Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/20 opacity-90" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/20 opacity-90 pointer-events-none" />
 
-                  {/* Top Badges */}
-                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
-                    <div className="flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full border-2 border-black shadow-brutal-sm">
+                  {/* Top Badges & Actions */}
+                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-30 pointer-events-auto">
+                    <div className="flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full border-2 border-black shadow-brutal-sm pointer-events-none">
                       <span className="relative flex h-2.5 w-2.5">
                         <span
                           className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
@@ -313,20 +371,47 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
-                    <div className="bg-brand-yellow text-black px-3 py-1 rounded-full border-2 border-black shadow-brutal-sm font-display font-black text-[11px]">
-                      9:16 • {duration}s
+                    <div className="flex items-center gap-1.5 pointer-events-auto">
+                      <div className="bg-brand-yellow text-black px-3 py-1 rounded-full border-2 border-black shadow-brutal-sm font-display font-black text-[11px] pointer-events-none">
+                        9:16 • {duration}s
+                      </div>
+
+                      {/* Delete Reel Action Button */}
+                      <button
+                        type="button"
+                        data-testid={`delete-reel-${project._id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setProjectToDelete({ id: project._id, title: project.title });
+                        }}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        disabled={deletingId === project._id}
+                        className="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 active:bg-red-700 text-white border-2 border-black rounded-full shadow-brutal-sm hover:scale-110 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer z-40 disabled:opacity-50"
+                        title="Delete Reel"
+                        aria-label="Delete Reel"
+                      >
+                        <Trash2 className="w-4 h-4 stroke-[2.5]" />
+                      </button>
                     </div>
                   </div>
 
                   {/* Center Play Button (On Hover) */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                    <div className="w-16 h-16 rounded-full bg-brand-yellow text-black border-4 border-black shadow-brutal flex items-center justify-center transform group-hover:scale-110 active:translate-x-1 active:translate-y-1 active:shadow-none transition-transform">
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 pointer-events-none">
+                    <div className="w-16 h-16 rounded-full bg-brand-yellow text-black border-4 border-black shadow-brutal flex items-center justify-center transform group-hover:scale-110 active:translate-x-1 active:translate-y-1 active:shadow-none transition-transform pointer-events-none">
                       <Play className="w-7 h-7 fill-black translate-x-0.5" />
                     </div>
                   </div>
 
                   {/* Bottom Meta & Title Overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 p-5 z-10 flex flex-col gap-2">
+                  <div className="absolute bottom-0 left-0 right-0 p-5 z-10 flex flex-col gap-2 pointer-events-none">
                     <div className="flex items-center gap-2">
                       <span className="bg-white text-black px-2.5 py-0.5 rounded-full border border-black font-display font-bold text-[10px] shadow-sm uppercase tracking-wider">
                         {project.stats?.tag || '🔥 1.2M VIEWS'}
@@ -361,7 +446,99 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* 6. Global Fixed Bottom Floating Navigation Dock */}
+      {/* 6. Brutal Delete Confirmation Modal Dialog */}
+      {projectToDelete && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            if (!deletingId) setProjectToDelete(null);
+          }}
+        >
+          <div
+            className="max-w-md w-full bg-white text-black border-4 border-black rounded-3xl p-6 sm:p-8 shadow-brutal relative animate-in zoom-in-95 duration-150 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setProjectToDelete(null)}
+              disabled={!!deletingId}
+              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black text-white hover:bg-neutral-800 flex items-center justify-center border-2 border-black transition-all cursor-pointer disabled:opacity-50"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5 stroke-[3]" />
+            </button>
+
+            {/* Warning Icon Badge */}
+            <div className="w-16 h-16 bg-red-500 text-white rounded-2xl border-3 border-black shadow-brutal flex items-center justify-center mx-auto">
+              <Trash2 className="w-8 h-8 stroke-[2.5]" />
+            </div>
+
+            {/* Modal Heading */}
+            <div className="text-center space-y-1">
+              <div className="inline-block px-3 py-0.5 bg-red-100 text-red-600 border border-red-300 rounded-full font-display font-extrabold text-[11px] uppercase tracking-wider mb-1">
+                ⚠️ Irreversible Action
+              </div>
+              <h3
+                id="delete-modal-title"
+                className="font-display font-black text-2xl uppercase tracking-tight text-black"
+              >
+                Delete This Reel?
+              </h3>
+            </div>
+
+            {/* Reel Title Target Card */}
+            <div className="p-3.5 bg-neutral-100 border-2 border-black rounded-2xl text-center shadow-brutal-sm">
+              <p className="font-display font-black text-sm text-black line-clamp-2">
+                "{projectToDelete.title}"
+              </p>
+            </div>
+
+            {/* Danger Explanatory Text */}
+            <p className="text-xs font-semibold text-neutral-600 text-center leading-relaxed px-2">
+              Are you sure? This will permanently delete the 9:16 vertical video renders, AI audio tracks, motion graphics storyboard, and any scheduled Instagram Reels for this project.
+            </p>
+
+            {/* Dual Action Buttons */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                data-testid="cancel-delete-reel-btn"
+                onClick={() => setProjectToDelete(null)}
+                disabled={!!deletingId}
+                className="flex-1 py-3 px-4 bg-white hover:bg-neutral-100 text-black border-3 border-black rounded-2xl font-display font-black text-xs uppercase tracking-wider shadow-brutal-sm hover:shadow-none active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer disabled:opacity-50 text-center"
+              >
+                Keep Reel
+              </button>
+
+              <button
+                type="button"
+                data-testid="confirm-delete-reel-btn"
+                onClick={confirmDelete}
+                disabled={!!deletingId}
+                className="flex-1 py-3 px-4 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white border-3 border-black rounded-2xl font-display font-black text-xs uppercase tracking-wider shadow-brutal hover:shadow-brutal-lg active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 text-center"
+              >
+                {deletingId ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 stroke-[2.5]" />
+                    <span>Delete Forever</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Global Fixed Bottom Floating Navigation Dock */}
       <FloatingDock />
     </div>
   );

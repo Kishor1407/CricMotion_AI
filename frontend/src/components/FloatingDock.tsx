@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Sparkles, Calendar, User } from 'lucide-react';
+import { LayoutGrid, Calendar, User } from 'lucide-react';
 
 interface DockItem {
   name: string;
@@ -13,7 +13,6 @@ interface DockItem {
 
 const DOCK_ITEMS: DockItem[] = [
   { name: 'Reels Gallery', href: '/dashboard', icon: LayoutGrid },
-  { name: 'AI Studio', href: '/workspace', icon: Sparkles },
   { name: 'Schedule', href: '/schedule', icon: Calendar },
   { name: 'Profile', href: '/settings', icon: User },
 ];
@@ -30,7 +29,7 @@ export const FloatingDock: React.FC = () => {
 
           return (
             <React.Fragment key={item.name}>
-              {index === 3 && (
+              {index === 2 && (
                 <div className="w-[3px] h-7 bg-black/20 rounded-full mx-1 hidden sm:block" />
               )}
               <Link

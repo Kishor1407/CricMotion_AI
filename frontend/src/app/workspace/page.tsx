@@ -97,6 +97,11 @@ interface ProjectData {
     avatarVideoUrl?: string;
     finalRenderUrl?: string;
   };
+  stats?: {
+    views?: number;
+    durationSeconds?: number;
+    tag?: string;
+  };
 }
 
 function calculateCadenceTimestamps(narration: string, durationSec: number = 10): WordTimestamp[] {

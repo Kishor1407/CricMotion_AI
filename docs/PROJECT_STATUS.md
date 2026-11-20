@@ -2,7 +2,7 @@
 
 **Project Name:** CricMotion AI  
 **Core Purpose:** AI-Powered Cricket Video & Reel Generator (9:16 Vertical Broadcast Motion Graphics with Lip-Syncing AI Presenter)  
-**Last Updated:** November 19, 2026  
+**Last Updated:** November 20, 2026  
 **Current Phase:** Phase 10 — Social Publishing (Instagram Reels Exclusive), Headless MP4 Rendering & Creator Settings (`COMPLETED`)  
 **Repository:** [github.com/Kishor1407/CricMotion_AI](https://github.com/Kishor1407/CricMotion_AI)  
 
@@ -42,11 +42,12 @@
 ### Module 2: Global Navigation & Dashboard (`DASH`)
 | Feature ID | Feature Description | UI Done | API / Backend | Tested | Committed | Overall Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| `DASH-01` | Fixed Bottom Floating Dock Navigation (Lucide icons, active dot) | ✅ Done | N/A | ✅ Tested | ✅ Committed | 🟢 Completed |
+| `DASH-01` | Fixed Bottom Floating Dock Navigation (Streamlined 3-item navigation: Gallery, Schedule, Profile) | ✅ Done | N/A | ✅ Tested | ✅ Committed | 🟢 Completed |
 | `DASH-02` | Project Header & Wallet Generation Credits Pill (`Credits: 50`) | ✅ Done | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
 | `DASH-03` | Masonry 9:16 Video Thumbnail Grid (Hover play overlay, status dot) | ✅ Done | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
 | `DASH-04` | Floating Action Button (FAB) (Massive yellow circular `+` button) | ✅ Done | N/A | ✅ Tested | ✅ Committed | 🟢 Completed |
 | `DASH-05` | Project Repository API (`GET /v1/projects` scoped by `ownerId`) | N/A | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
+| `DASH-06` | One-Click Reel Card Deletion with Custom Neo-Brutalist Confirmation Modal & Cascade DB Cleanup | ✅ Done | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
 
 ### Module 3: Omnibar & Creation Studio Shell (`STUDIO`)
 | Feature ID | Feature Description | UI Done | API / Backend | Tested | Committed | Overall Status |
@@ -126,9 +127,9 @@
 ### Module 11: Profile, Settings & BYOK Wallet (`SETTINGS`)
 | Feature ID | Feature Description | UI Done | API / Backend | Tested | Committed | Overall Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| `SETTINGS-01` | Profile & Account Screen (User info, avatar, remaining credits) | ✅ Done | ✅ Done | ✅ Tested | 🔄 Staged | 🟢 Completed |
+| `SETTINGS-01` | Profile & Account Screen (Minimal sleek horizontal layout, live wallet credits & tier badges) | ✅ Done | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
 | `SETTINGS-02` | BYOK Key Vault (Custom inputs for Gemini & ElevenLabs keys) | ✅ Done | ⏳ In-Progress | ⏳ Pending | ⏳ Pending | 🔄 In Progress |
-| `SETTINGS-03` | Danger Zone Sign-Out Action Flow | ✅ Done | ✅ Done | ✅ Tested | 🔄 Staged | 🟢 Completed |
+| `SETTINGS-03` | Danger Zone Sign-Out Action Flow | ✅ Done | ✅ Done | ✅ Tested | ✅ Committed | 🟢 Completed |
 
 ---
 
@@ -164,4 +165,5 @@
 | `985d32f` | 2026-11-19 | feat(avatar): implement Module 6 AI Presenter Lip-Sync Engine (AVATAR-01 to AVATAR-03), real natural speech commentary, and CricMotion favicon | Kishor Hegge / Antigravity AI |
 | `e6055fe` | 2026-11-19 | feat(remotion): implement Module 7 Remotion Dynamic Compositing Engine (REMOTION-01 to REMOTION-13), 5-layer z-index pipeline, and binary favicon suite | Kishor Hegge / Antigravity AI |
 | `d561032` | 2026-11-19 | feat: implement Modules 8-10 (video rendering, storage, Instagram Reels publishing & settings) | Kishor Hegge / Antigravity AI |
-| `ef7a984` | 2026-11-20 | feat(wallet): implement live dynamic credit deduction (-5 per reel) & full journey E2E verification | Kishor Hegge / Antigravity AI |
+| `4de7182` | 2026-11-20 | feat(wallet): implement live dynamic credit deduction (-5 per reel) & full journey E2E verification | Kishor Hegge / Antigravity AI |
+| `af56b4e` | 2026-11-20 | feat: add reel deletion modal, cascade cleanup, streamlined dock & minimal settings UI | Kishor Hegge / Antigravity AI |

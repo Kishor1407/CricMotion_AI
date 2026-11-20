@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { Project } from '../models/Project';
 import { User } from '../models/User';
+import { ScheduledPost } from '../models/ScheduledPost';
 import { generateStoryboard, reviseStoryboard } from '../services/geminiService';
 import {
   synthesizeProjectAudio,
@@ -608,6 +609,9 @@ export const deleteProject = async (req: AuthRequest, res: Response): Promise<vo
       res.status(404).json({ success: false, message: 'Project not found' });
       return;
     }
+
+    // Also remove any scheduled posts tied to this deleted reel
+    await ScheduledPost.deleteMany({ projectId, ownerId }).catch(() => {});
 
     res.status(200).json({
       success: true,
